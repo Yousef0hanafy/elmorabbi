@@ -1,0 +1,59 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-cairo: 'Cairo', system-ui, -apple-system, sans-serif;
+    --font-amiri: 'Amiri', serif;
+  }
+
+  * {
+    border-color: #e2e8f0;
+  }
+
+  body {
+    font-family: var(--font-cairo);
+    background-color: #f8faf9;
+    color: #0f172a;
+    direction: rtl;
+    text-align: right;
+  }
+}
+
+/* Custom Islamic aesthetic flourishes */
+.font-quran {
+  font-family: var(--font-amiri);
+}
+
+.gradient-emerald {
+  background: linear-gradient(135deg, #065f46 0%, #047857 50%, #059669 100%);
+}
+
+.gradient-gold {
+  background: linear-gradient(135deg, #b45309 0%, #d97706 50%, #f59e0b 100%);
+}
+
+.gradient-surface {
+  background: linear-gradient(180deg, #ffffff 0%, #f7faf8 100%);
+}
+
+.islamic-pattern {
+  background-color: #064e3b;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 0);
+  background-size: 20px 20px;
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
