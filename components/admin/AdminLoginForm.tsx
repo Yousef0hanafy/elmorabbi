@@ -27,8 +27,14 @@ export function AdminLoginForm() {
           </p>
         </div>
 
+        {error === "too_many_attempts" && (
+          <div role="alert" className="bg-rose-950/60 border border-rose-800/80 rounded-2xl p-3.5 mb-6 text-rose-200 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+            <span>محاولات دخول كثيرة. يرجى الانتظار ربع ساعة ثم المحاولة مرة أخرى.</span>
+          </div>
+        )}
         {error === "invalid_credentials" && (
-          <div className="bg-rose-950/60 border border-rose-800/80 rounded-2xl p-3.5 mb-6 text-rose-200 text-xs flex items-center gap-2">
+          <div role="alert" className="bg-rose-950/60 border border-rose-800/80 rounded-2xl p-3.5 mb-6 text-rose-200 text-xs flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
             <span>بيانات الدخول غير صحيحة. يرجى التحقق والمحاولة مجدداً.</span>
           </div>
@@ -37,11 +43,12 @@ export function AdminLoginForm() {
         {/* Form */}
         <form action={adminLoginAction} className="space-y-4">
           <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+            <label htmlFor="adminloginform-email" className="text-xs font-semibold text-slate-300 block mb-1.5">
               البريد الإلكتروني للإدارة
             </label>
             <div className="relative">
               <input
+                id="adminloginform-email"
                 name="email"
                 type="email"
                 required
@@ -54,12 +61,14 @@ export function AdminLoginForm() {
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-slate-300 block mb-1.5">
+            <label htmlFor="adminloginform-password" className="text-xs font-semibold text-slate-300 block mb-1.5">
               كلمة المرور
             </label>
             <div className="relative">
               <input
+                id="adminloginform-password"
                 name="password"
+                autoComplete="current-password"
                 type="password"
                 required
                 placeholder="••••••••"

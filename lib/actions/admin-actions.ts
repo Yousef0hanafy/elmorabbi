@@ -6,6 +6,7 @@ import { ENV_ADMIN_ID, requireRole, setSession } from "@/lib/auth";
 import { dataService, DuplicateEmailError } from "@/lib/data-service";
 import { hashPassword, verifyPassword } from "@/lib/password";
 import { isValidPassword, MIN_PASSWORD_LENGTH, SAVE_ERROR_MESSAGE } from "@/lib/validation";
+import { isLoginBlocked, recordFailedLogin } from "@/lib/rate-limit";
 
 export async function adminLoginAction(formData: FormData): Promise<void> {
   const email = ((formData.get("email") as string | null) ?? "").trim().toLowerCase();
@@ -13,6 +14,10 @@ export async function adminLoginAction(formData: FormData): Promise<void> {
 
   if (!email || !password) {
     redirect("/admin?error=invalid_credentials");
+  }
+
+  if (await isLoginBlocked("admin-login", email)) {
+    redirect("/admin?error=too_many_attempts");
   }
 
   // Bootstrap admin from environment variables (no hard-coded defaults)
@@ -43,6 +48,7 @@ export async function adminLoginAction(formData: FormData): Promise<void> {
     redirect("/admin");
   }
 
+  await recordFailedLogin("admin-login", email);
   redirect("/admin?error=invalid_credentials");
 }
 

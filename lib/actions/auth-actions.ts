@@ -5,6 +5,7 @@ import { dataService, DuplicateEmailError, UserRecord } from "../data-service";
 import { setSession, clearSession } from "../auth";
 import { hashPassword, verifyPassword } from "../password";
 import { isValidPassword } from "../validation";
+import { allowAttempt, isLoginBlocked, recordFailedLogin } from "../rate-limit";
 
 export async function loginAction(formData: FormData): Promise<void> {
   const email = (formData.get("email") as string | null)?.trim().toLowerCase();
@@ -15,10 +16,15 @@ export async function loginAction(formData: FormData): Promise<void> {
     redirect(`/login?error=missing_fields&role=${expectedRole}`);
   }
 
+  if (await isLoginBlocked("login", email)) {
+    redirect(`/login?error=too_many_attempts&role=${expectedRole}&email=${encodeURIComponent(email)}`);
+  }
+
   const user = await dataService.getUserByEmail(email);
   const isValid = await verifyPassword(password, user?.password);
 
   if (!user || !isValid) {
+    await recordFailedLogin("login", email);
     redirect(`/login?error=invalid_credentials&role=${expectedRole}&email=${encodeURIComponent(email)}`);
   }
 
@@ -67,6 +73,10 @@ export async function registerAction(formData: FormData): Promise<void> {
 
   if (!isValidPassword(password)) {
     redirect(`/register?error=weak_password&role=${role}`);
+  }
+
+  if (!(await allowAttempt("register"))) {
+    redirect(`/register?error=too_many_attempts&role=${role}`);
   }
 
   const existing = await dataService.getUserByEmail(email);
