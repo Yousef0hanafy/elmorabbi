@@ -1,5 +1,5 @@
 import { Header } from "@/components/shared/Header";
-import { BottomNav } from "@/components/shared/BottomNav";
+import { StudentBottomNav } from "@/components/shared/RoleBottomNav";
 import { TodayProgress } from "@/components/student/TodayProgress";
 import { PrayerTracker } from "@/components/student/PrayerTracker";
 import { QuranTracker } from "@/components/student/QuranTracker";
@@ -82,7 +82,7 @@ export default async function StudentDashboardPage() {
         {hasSheikh && <LatestGuidance latest={feedbacks[0]} total={feedbacks.length} />}
       </main>
 
-      <BottomNav role="student" />
+      <StudentBottomNav studentId={session.id} />
     </div>
   );
 }

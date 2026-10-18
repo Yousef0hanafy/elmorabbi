@@ -242,6 +242,30 @@ async function seed() {
     category: "تثبيت ورد القرآن",
   });
 
+  // An answered question: the reply is guidance linked to the question with replyToId
+  feedbackItems.push(
+    {
+      id: "q-2",
+      sheikhId: "sheikh-mahmoud",
+      studentId: "student-omar",
+      content: "يا شيخنا، أجد صعوبة في الاستيقاظ لصلاة الفجر، فبم تنصحني؟",
+      type: "advice" as const,
+      isRead: false,
+      kind: "question" as const,
+      category: "علاج فتور الهمة",
+    },
+    {
+      id: "fb-reply-q-2",
+      sheikhId: "sheikh-mahmoud",
+      studentId: "student-omar",
+      content: "نم مبكراً يا بني، واجعل لك رفيقاً يوقظك، وأكثر من الدعاء قبل النوم أن يعينك الله على القيام.",
+      type: "advice" as const,
+      isRead: false,
+      kind: "guidance" as const,
+      replyToId: "q-2",
+    }
+  );
+
   for (const fb of feedbackItems) {
     await db
       .insert(schema.feedbackMessages)

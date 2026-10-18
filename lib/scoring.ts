@@ -75,9 +75,38 @@ export function needsFollowUp(todayLog: PrayerFields | undefined): boolean {
   return PRAYERS.some((p) => todayLog[p] === "missed") || todayLog.fajr === "late";
 }
 
+// Follow-up for the sheikh's list: today's problems or a multi-day pattern
+export function needsAttention(student: { todayLog?: PrayerFields; alerts?: StudentAlert[] }): boolean {
+  return needsFollowUp(student.todayLog) || (student.alerts?.length ?? 0) > 0;
+}
+
 export function hasLoggedAnything(log: DeedFields | undefined): boolean {
   if (!log) return false;
   return (
     PRAYERS.some((p) => log[p] !== "pending") || log.quranRead || log.adhkarMorning || log.adhkarEvening
   );
+}
+
+export type StudentAlert = "fajr_3_days" | "inactive_3_days";
+
+// Patterns over the three days before today, shown to the sheikh as alerts
+export function computeAlerts(
+  recentLogs: DailyLogRecord[],
+  today: string,
+  todayLog: DeedFields | undefined,
+  // Calendar day the account was created; newer accounts cannot be "inactive for 3 days"
+  joinedDate: string
+): StudentAlert[] {
+  const byDate = new Map(recentLogs.map((l) => [l.date, l]));
+  const previousDays = [1, 2, 3].map((n) => byDate.get(addDays(today, -n)));
+  const alerts: StudentAlert[] = [];
+
+  if (previousDays.every((l) => l && (l.fajr === "missed" || l.fajr === "late"))) {
+    alerts.push("fajr_3_days");
+  }
+  const joinedBeforeWindow = joinedDate <= addDays(today, -3);
+  if (joinedBeforeWindow && previousDays.every((l) => !hasLoggedAnything(l)) && !hasLoggedAnything(todayLog)) {
+    alerts.push("inactive_3_days");
+  }
+  return alerts;
 }

@@ -11,6 +11,8 @@ interface SendFeedbackDialogProps {
   onClose: () => void;
   studentId: string;
   studentName: string;
+  // When answering a student question
+  replyTo?: { id: string; content: string };
 }
 
 type FeedbackType = "praise" | "advice" | "warning" | "general";
@@ -35,6 +37,7 @@ export function SendFeedbackDialog({
   onClose,
   studentId,
   studentName,
+  replyTo,
 }: SendFeedbackDialogProps) {
   const [content, setContent] = useState("");
   const [type, setType] = useState<FeedbackType>("advice");
@@ -50,7 +53,7 @@ export function SendFeedbackDialog({
 
     setErrorMessage(null);
     startTransition(async () => {
-      const res = await sendFeedbackAction(studentId, content, type);
+      const res = await sendFeedbackAction(studentId, content, type, replyTo?.id);
       if (res.error) {
         setErrorMessage(res.error);
       } else if (res.success) {
@@ -65,7 +68,7 @@ export function SendFeedbackDialog({
   };
 
   return (
-    <Dialog onClose={onClose} label="إرسال توجيه للطالب" className="rounded-2xl max-w-lg p-6 relative">
+    <Dialog onClose={onClose} label={replyTo ? "الرد على سؤال الطالب" : "إرسال توجيه للطالب"} className="rounded-2xl max-w-lg p-6 relative">
       <button
         aria-label="إغلاق"
         type="button"
@@ -81,13 +84,19 @@ export function SendFeedbackDialog({
         </div>
         <div>
           <h3 className="text-lg font-bold text-slate-900">
-            إرسال توجيه ومتابعة
+            {replyTo ? "الرد على سؤال الطالب" : "إرسال توجيه ومتابعة"}
           </h3>
           <p className="text-xs text-slate-500">
             إلى الطالب: <span className="font-semibold text-emerald-700">{studentName}</span>
           </p>
         </div>
       </div>
+
+      {replyTo && (
+        <blockquote className="mb-4 p-3 rounded-xl bg-slate-50 border-r-4 border-amber-400 text-xs text-slate-700 leading-relaxed line-clamp-4">
+          {replyTo.content}
+        </blockquote>
+      )}
 
       {/* Feedback Type Selector */}
       <div className="mb-4">

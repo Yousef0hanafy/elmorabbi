@@ -31,7 +31,8 @@ export async function chooseSheikhAction(sheikhId: string) {
 export async function sendFeedbackAction(
   studentId: string,
   content: string,
-  type: "praise" | "advice" | "warning" | "general" = "general"
+  type: "praise" | "advice" | "warning" | "general" = "general",
+  replyToId?: string
 ) {
   const session = await getSession();
   if (!session || session.role !== "sheikh") {
@@ -52,17 +53,28 @@ export async function sendFeedbackAction(
     return { error: "هذا الطالب ليس من طلاب حلقتك" };
   }
 
+  // A reply must answer a question this student sent to this sheikh
+  if (replyToId) {
+    const question = await dataService.getQuestion(replyToId);
+    if (!question || question.sheikhId !== session.id || question.studentId !== studentId) {
+      return { error: "السؤال غير موجود" };
+    }
+  }
+
   const sheikhUser = await dataService.getUserById(session.id);
   const sheikhName = sheikhUser?.name || "الشيخ المشرف";
 
   try {
-    await dataService.sendFeedback({
-      sheikhId: session.id,
-      studentId,
-      sheikhName,
-      content: text,
-      type,
-    });
+    await dataService.sendFeedback(
+      {
+        sheikhId: session.id,
+        studentId,
+        sheikhName,
+        content: text,
+        type,
+      },
+      replyToId
+    );
   } catch (err) {
     console.error("Failed to send feedback:", err);
     return { error: SAVE_ERROR_MESSAGE };

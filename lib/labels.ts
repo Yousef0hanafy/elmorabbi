@@ -38,3 +38,8 @@ export const FEEDBACK_TYPE_LABELS: Record<"praise" | "advice" | "warning" | "gen
   warning: "تنبيه أخوي",
   general: "توجيه عام",
 };
+
+export const STUDENT_ALERT_LABELS: Record<"fajr_3_days" | "inactive_3_days", string> = {
+  fajr_3_days: "الفجر فاته أو قضاه 3 أيام متتالية",
+  inactive_3_days: "لم يسجّل ورده منذ 3 أيام",
+};

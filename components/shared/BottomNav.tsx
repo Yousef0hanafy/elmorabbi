@@ -6,9 +6,11 @@ import { CheckCircle2, MessageSquareQuote, TrendingUp, UserCheck } from "lucide-
 
 interface BottomNavProps {
   role: "student" | "sheikh" | "admin";
+  // Counter badges keyed by item href, e.g. unread messages
+  badges?: Record<string, number>;
 }
 
-export function BottomNav({ role }: BottomNavProps) {
+export function BottomNav({ role, badges = {} }: BottomNavProps) {
   const pathname = usePathname();
 
   if (role === "student") {
@@ -35,7 +37,15 @@ export function BottomNav({ role }: BottomNavProps) {
                     : "text-slate-500 hover:text-slate-900"
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? "text-emerald-600" : ""}`} />
+                <span className="relative">
+                  <Icon className={`w-5 h-5 ${isActive ? "text-emerald-600" : ""}`} />
+                  {(badges[item.href] ?? 0) > 0 && (
+                    <span className="absolute -top-1.5 -left-2 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold leading-4 text-center">
+                      {badges[item.href]}
+                      <span className="sr-only"> جديد</span>
+                    </span>
+                  )}
+                </span>
                 <span>{item.label}</span>
               </Link>
             );
@@ -68,7 +78,15 @@ export function BottomNav({ role }: BottomNavProps) {
                     : "text-slate-500 hover:text-slate-900"
                 }`}
               >
-                <Icon className={`w-5 h-5 ${isActive ? "text-amber-600" : ""}`} />
+                <span className="relative">
+                  <Icon className={`w-5 h-5 ${isActive ? "text-amber-600" : ""}`} />
+                  {(badges[item.href] ?? 0) > 0 && (
+                    <span className="absolute -top-1.5 -left-2 min-w-4 h-4 px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold leading-4 text-center">
+                      {badges[item.href]}
+                      <span className="sr-only"> جديد</span>
+                    </span>
+                  )}
+                </span>
                 <span>{item.label}</span>
               </Link>
             );

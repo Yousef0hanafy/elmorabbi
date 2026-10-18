@@ -108,6 +108,9 @@ export function SheikhFeedbackFeed({ feedbacks, sheikhName }: SheikhFeedbackFeed
                     <span className="font-bold text-xs text-gray-900">
                       {fb.sheikhName}
                     </span>
+                    {!fb.isRead && (
+                      <span className="px-1.5 py-0.5 rounded-full bg-amber-500 text-white text-[10px] font-bold">جديد</span>
+                    )}
                     <span
                       className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${badge.bg}`}
                     >

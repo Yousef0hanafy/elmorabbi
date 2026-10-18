@@ -144,3 +144,18 @@ export async function sendStudentQuestionAction(content: string, category: strin
   revalidatePath("/sheikh");
   return { success: true };
 }
+
+// Called when the student opens their guidance page
+export async function markGuidanceReadAction() {
+  const session = await getSession();
+  if (!session || session.role !== "student") {
+    return { error: "غير مصرح" };
+  }
+  try {
+    await dataService.markGuidanceReadForStudent(session.id);
+  } catch (err) {
+    console.error("Failed to mark guidance as read:", err);
+    return { error: SAVE_ERROR_MESSAGE };
+  }
+  return { success: true };
+}

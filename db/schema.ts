@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer, index, uniqueIndex, type AnyPgColumn } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -57,11 +57,14 @@ export const feedbackMessages = pgTable("feedback_messages", {
   // guidance: sheikh -> student; question: student -> sheikh
   kind: text("kind", { enum: ["guidance", "question"] }).default("guidance").notNull(),
   category: text("category"),
+  // For a sheikh's reply: the student question it answers
+  replyToId: text("reply_to_id").references((): AnyPgColumn => feedbackMessages.id),
   isRead: boolean("is_read").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 }, (t) => [
   index("feedback_student_idx").on(t.studentId),
   index("feedback_sheikh_idx").on(t.sheikhId),
+  index("feedback_reply_to_idx").on(t.replyToId),
 ]);
 
 export type User = typeof users.$inferSelect;

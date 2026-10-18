@@ -1,11 +1,11 @@
 import "server-only";
 
 import { getDb, schema } from "@/db";
-import { eq, and, inArray, count } from "drizzle-orm";
+import { eq, and, gte, inArray, count } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
-import { todayDateString } from "../dates";
-import { completionRate, countCompletedDeeds } from "../scoring";
-import type { StudentProfileRecord } from "./types";
+import { addDays, todayDateString } from "../dates";
+import { completionRate, computeAlerts, countCompletedDeeds } from "../scoring";
+import type { DailyLogRecord, StudentProfileRecord } from "./types";
 import { getStreaks, toLogRecord } from "./shared";
 
 export const studentQueries = {
@@ -58,17 +58,23 @@ export const studentQueries = {
 
     const ids = students.map((s) => s.user.id);
     const today = todayDateString();
-    const [todayLogs, streaks] = await Promise.all([
+    // Today plus the three previous days, used for today's status and pattern alerts
+    const [recentRows, streaks] = await Promise.all([
       db
         .select()
         .from(schema.dailyLogs)
-        .where(and(inArray(schema.dailyLogs.studentId, ids), eq(schema.dailyLogs.date, today))),
+        .where(and(inArray(schema.dailyLogs.studentId, ids), gte(schema.dailyLogs.date, addDays(today, -3)))),
       getStreaks(ids),
     ]);
-    const logByStudent = new Map(todayLogs.map((l) => [l.studentId, toLogRecord(l)]));
+    const logsByStudent = new Map<string, DailyLogRecord[]>();
+    for (const row of recentRows) {
+      if (!logsByStudent.has(row.studentId)) logsByStudent.set(row.studentId, []);
+      logsByStudent.get(row.studentId)!.push(toLogRecord(row));
+    }
 
     return students.map(({ user, profile }) => {
-      const todayLog = logByStudent.get(user.id);
+      const recentLogs = logsByStudent.get(user.id) ?? [];
+      const todayLog = recentLogs.find((l) => l.date === today);
       return {
         id: user.id,
         name: user.name,
@@ -79,6 +85,7 @@ export const studentQueries = {
         todayLog,
         completedDeeds: countCompletedDeeds(todayLog),
         completionRate: completionRate(todayLog),
+        alerts: computeAlerts(recentLogs, today, todayLog, todayDateString(user.createdAt)),
       };
     });
   },

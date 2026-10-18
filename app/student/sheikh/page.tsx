@@ -1,8 +1,10 @@
 import { Header } from "@/components/shared/Header";
-import { BottomNav } from "@/components/shared/BottomNav";
+import { StudentBottomNav } from "@/components/shared/RoleBottomNav";
 import { requireRole } from "@/lib/auth";
 import { dataService } from "@/lib/data-service";
 import { SheikhFeedbackFeed } from "@/components/student/SheikhFeedbackFeed";
+import { QuestionThreads } from "@/components/student/QuestionThreads";
+import { MarkGuidanceRead } from "@/components/student/MarkGuidanceRead";
 import Link from "next/link";
 import { Compass, UserCheck, ArrowRight } from "lucide-react";
 
@@ -10,10 +12,15 @@ export default async function StudentSheikhViewPage() {
   const session = await requireRole("student");
 
   const studentId = session.id;
-  const profile = await dataService.getStudentProfile(studentId);
+  const [profile, feedbacks, threads] = await Promise.all([
+    dataService.getStudentProfile(studentId),
+    dataService.getFeedbackForStudent(studentId),
+    dataService.getQuestionThreadsForStudent(studentId),
+  ]);
   const sheikhId = profile?.sheikhId;
   const sheikh = sheikhId ? await dataService.getUserById(sheikhId) : null;
-  const feedbacks = await dataService.getFeedbackForStudent(studentId);
+  const hasUnread =
+    feedbacks.some((f) => !f.isRead) || threads.some((t) => t.replies.some((r) => !r.isRead));
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9] pb-24 md:pb-12">
@@ -99,11 +106,15 @@ export default async function StudentSheikhViewPage() {
           </div>
         )}
 
+        <MarkGuidanceRead hasUnread={hasUnread} />
+
+        <QuestionThreads threads={threads} sheikhName={sheikh?.name} />
+
         {/* Feedback messages */}
         <SheikhFeedbackFeed feedbacks={feedbacks} sheikhName={sheikh?.name} />
       </main>
 
-      <BottomNav role="student" />
+      <StudentBottomNav studentId={session.id} />
     </div>
   );
 }

@@ -1,5 +1,5 @@
 import { Header } from "@/components/shared/Header";
-import { BottomNav } from "@/components/shared/BottomNav";
+import { StudentBottomNav } from "@/components/shared/RoleBottomNav";
 import { requireRole } from "@/lib/auth";
 import { dataService } from "@/lib/data-service";
 import { ChooseSheikhDirectory } from "@/components/student/ChooseSheikhDirectory";
@@ -47,7 +47,7 @@ export default async function ChooseSheikhPage() {
         />
       </main>
 
-      <BottomNav role="student" />
+      <StudentBottomNav studentId={session.id} />
     </div>
   );
 }

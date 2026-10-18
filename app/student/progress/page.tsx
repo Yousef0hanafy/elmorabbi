@@ -1,5 +1,5 @@
 import { Header } from "@/components/shared/Header";
-import { BottomNav } from "@/components/shared/BottomNav";
+import { StudentBottomNav } from "@/components/shared/RoleBottomNav";
 import { WeeklyProgressChart } from "@/components/student/WeeklyProgressChart";
 import { BadgesSection } from "@/components/student/BadgesSection";
 import { HalaqahRank } from "@/components/student/HalaqahRank";
@@ -62,7 +62,7 @@ export default async function StudentProgressPage() {
         <HalaqahRank rank={rank} total={total} streakDays={streakDays} halaqahName={halaqahName} />
       </main>
 
-      <BottomNav role="student" />
+      <StudentBottomNav studentId={session.id} />
     </div>
   );
 }
