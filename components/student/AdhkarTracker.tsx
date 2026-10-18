@@ -90,7 +90,9 @@ export function AdhkarTracker({ initialMorning, initialEvening }: AdhkarTrackerP
                 type="button"
                 onClick={handleToggleMorning}
                 title="تحديد الإنجاز السريع"
-                className={`w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${
+                aria-label="تم قراءة أذكار الصباح"
+                aria-pressed={morning}
+                className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-colors ${
                   morning
                     ? "bg-amber-600 border-amber-600 text-white"
                     : "border-slate-300 bg-white hover:border-slate-400"
@@ -150,7 +152,9 @@ export function AdhkarTracker({ initialMorning, initialEvening }: AdhkarTrackerP
                 type="button"
                 onClick={handleToggleEvening}
                 title="تحديد الإنجاز السريع"
-                className={`w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${
+                aria-label="تم قراءة أذكار المساء"
+                aria-pressed={evening}
+                className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-colors ${
                   evening
                     ? "bg-indigo-600 border-indigo-600 text-white"
                     : "border-slate-300 bg-white hover:border-slate-400"

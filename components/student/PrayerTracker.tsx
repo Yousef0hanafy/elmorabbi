@@ -1,64 +1,71 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { updatePrayerAction } from "@/lib/actions/log-actions";
 import type { DailyLogRecord } from "@/lib/data-service";
+import type { PrayerKey, PrayerStatus } from "@/lib/validation";
+import { PRAYER_STATUS_LABELS } from "@/lib/labels";
 import { celebrate } from "@/lib/celebrate";
+import { Card, CardHeader } from "@/components/ui/Card";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { CheckCircle2, Clock, Users, XCircle, Sparkles } from "lucide-react";
 
 interface PrayerTrackerProps {
   initialLog: DailyLogRecord;
 }
 
-type PrayerKey = "fajr" | "dhuhr" | "asr" | "maghrib" | "isha";
-type PrayerStatus = "congregation" | "ontime" | "late" | "missed";
-
 const prayers: { key: PrayerKey; name: string; subtitle: string }[] = [
-  { key: "fajr", name: "صلاة الفجر", subtitle: "من صلى الفجر في جماعة فكأنما قام الليل كله" },
-  { key: "dhuhr", name: "صلاة الظهر", subtitle: "أول صلاة صلاها جبريل عليه السلام بالنبي ﷺ" },
-  { key: "asr", name: "صلاة العصر", subtitle: "الصلاة الوسطى - من فاتته فكأنما وتر أهله وماله" },
-  { key: "maghrib", name: "صلاة المغرب", subtitle: "لا تزال أمتي بخير ما لم يؤخروا المغرب" },
-  { key: "isha", name: "صلاة العشاء", subtitle: "من صلى العشاء في جماعة فكأنما قام نصف الليل" },
+  { key: "fajr", name: "الفجر", subtitle: "من صلى الفجر في جماعة فكأنما قام الليل كله" },
+  { key: "dhuhr", name: "الظهر", subtitle: "أول صلاة صلاها جبريل عليه السلام بالنبي ﷺ" },
+  { key: "asr", name: "العصر", subtitle: "الصلاة الوسطى - من فاتته فكأنما وتر أهله وماله" },
+  { key: "maghrib", name: "المغرب", subtitle: "لا تزال أمتي بخير ما لم يؤخروا المغرب" },
+  { key: "isha", name: "العشاء", subtitle: "من صلى العشاء في جماعة فكأنما قام نصف الليل" },
 ];
 
-const statusOptions: { value: PrayerStatus; label: string; icon: typeof Users; color: string; bgActive: string }[] = [
+type RecordedStatus = Exclude<PrayerStatus, "pending">;
+
+const statusOptions: { value: RecordedStatus; label: string; hint: string; icon: typeof Users; active: string }[] = [
   {
     value: "congregation",
-    label: "في جماعة",
+    label: "جماعة",
+    hint: "صليتها في جماعة",
     icon: Users,
-    color: "text-emerald-700",
-    bgActive: "bg-emerald-600 text-white shadow-md shadow-emerald-600/30 border-emerald-600",
+    active: "bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/25",
   },
   {
     value: "ontime",
     label: "في وقتها",
+    hint: "صليتها منفرداً في وقتها",
     icon: CheckCircle2,
-    color: "text-teal-700",
-    bgActive: "bg-teal-600 text-white shadow-md shadow-teal-600/30 border-teal-600",
+    active: "bg-teal-600 text-white border-teal-600 shadow-md shadow-teal-600/25",
   },
   {
     value: "late",
     label: "قضاء",
+    hint: "صليتها بعد خروج وقتها",
     icon: Clock,
-    color: "text-amber-700",
-    bgActive: "bg-amber-600 text-white shadow-md shadow-amber-600/30 border-amber-600",
+    active: "bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/25",
   },
   {
     value: "missed",
-    label: "لم أصلِّ",
+    label: "فاتتني",
+    hint: "لم أصلِّها",
     icon: XCircle,
-    color: "text-slate-500",
-    bgActive: "bg-slate-200 text-slate-800 border-slate-300",
+    active: "bg-slate-700 text-white border-slate-700",
   },
 ];
 
+const isPrayedOnTime = (status: PrayerStatus) => status === "congregation" || status === "ontime";
+
 export function PrayerTracker({ initialLog }: PrayerTrackerProps) {
   const [log, setLog] = useState(initialLog);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const handleStatusChange = (prayerKey: PrayerKey, newStatus: PrayerStatus) => {
+  const handleStatusChange = (prayerKey: PrayerKey, chosen: RecordedStatus) => {
+    // Tapping the selected status again clears it back to "not logged yet"
+    const newStatus: PrayerStatus = log[prayerKey] === chosen ? "pending" : chosen;
+
     // Optimistic update, rolled back if saving fails
     const previous = log;
     const updated = { ...log, [prayerKey]: newStatus };
@@ -73,55 +80,55 @@ export function PrayerTracker({ initialLog }: PrayerTrackerProps) {
         return;
       }
 
-      // Check if all 5 prayers are completed
-      const allDone = ["fajr", "dhuhr", "asr", "maghrib", "isha"].every(
-        (p) => updated[p as PrayerKey] === "congregation" || updated[p as PrayerKey] === "ontime"
-      );
-
-      if (allDone) {
+      const allOnTime = prayers.every((p) => isPrayedOnTime(updated[p.key]));
+      const wasAllOnTime = prayers.every((p) => isPrayedOnTime(previous[p.key]));
+      if (allOnTime && !wasAllOnTime) {
         celebrate("large");
       }
     });
   };
 
-  return (
-    <div className="bg-white rounded-2xl p-5 sm:p-6 border border-slate-200 shadow-sm">
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
-            <Sparkles className="w-5 h-5" />
-          </div>
-          <div>
-            <h2 className="text-lg font-bold text-slate-900 leading-tight">
-              الصلوات الخمس المفروضة
-            </h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              عمود الدين - اضغط على الحالة لتسجيل صلاتك فور أدائها
-            </p>
-          </div>
-        </div>
-      </div>
+  const loggedCount = prayers.filter((p) => log[p.key] !== "pending").length;
 
-      <div className="space-y-3.5">
+  return (
+    <Card>
+      <CardHeader
+        icon={Sparkles}
+        title="الصلوات الخمس"
+        subtitle="اضغط على حالة كل صلاة بعد أدائها، واضغط عليها مرة أخرى للتراجع"
+        action={
+          <span className="text-xs font-bold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full">
+            {loggedCount} / 5 مسجّلة
+          </span>
+        }
+      />
+
+      <div className="space-y-3">
         {prayers.map((prayer) => {
-          const currentStatus = log[prayer.key] as PrayerStatus;
+          const currentStatus = log[prayer.key];
 
           return (
             <div
               key={prayer.key}
-              className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-slate-50 transition-colors gap-3"
+              role="group"
+              aria-label={`صلاة ${prayer.name}`}
+              className="p-3 rounded-xl border border-slate-100 bg-slate-50/70"
             >
-              <div className="flex flex-col">
-                <span className="font-bold text-slate-900 text-sm sm:text-base">
-                  {prayer.name}
-                </span>
-                <span className="text-[11px] text-slate-500 font-quran">
-                  {prayer.subtitle}
-                </span>
+              <div className="flex items-center justify-between gap-2 mb-2.5">
+                <div className="min-w-0">
+                  <span className="font-bold text-slate-900 text-base">صلاة {prayer.name}</span>
+                  <span className="hidden sm:block text-[11px] text-slate-500 font-quran truncate">
+                    {prayer.subtitle}
+                  </span>
+                </div>
+                {currentStatus === "pending" && (
+                  <span className="text-[11px] font-semibold text-slate-400 shrink-0">
+                    {PRAYER_STATUS_LABELS.pending}
+                  </span>
+                )}
               </div>
 
-              {/* Status options toggle buttons */}
-              <div className="grid grid-cols-4 sm:flex items-center gap-1.5 self-stretch sm:self-auto">
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                 {statusOptions.map((opt) => {
                   const isSelected = currentStatus === opt.value;
                   const Icon = opt.icon;
@@ -130,16 +137,17 @@ export function PrayerTracker({ initialLog }: PrayerTrackerProps) {
                     <button
                       key={opt.value}
                       type="button"
-                      disabled={isPending}
+                      aria-pressed={isSelected}
+                      title={opt.hint}
                       onClick={() => handleStatusChange(prayer.key, opt.value)}
-                      className={`flex items-center justify-center gap-1 py-1.5 px-2.5 rounded-lg text-xs font-medium border transition-all ${
+                      className={`min-h-12 flex flex-col items-center justify-center gap-0.5 px-1 rounded-xl text-xs font-bold border transition-all focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-emerald-600 ${
                         isSelected
-                          ? opt.bgActive
+                          ? opt.active
                           : "bg-white text-slate-600 border-slate-200 hover:border-slate-300 hover:bg-slate-100/60"
                       }`}
                     >
-                      <Icon className="w-3.5 h-3.5" />
-                      <span>{opt.label}</span>
+                      <Icon className="w-4 h-4" aria-hidden="true" />
+                      <span className="whitespace-nowrap">{opt.label}</span>
                     </button>
                   );
                 })}
@@ -148,7 +156,11 @@ export function PrayerTracker({ initialLog }: PrayerTrackerProps) {
           );
         })}
       </div>
+
+      <p className="mt-3 text-[11px] text-slate-500">
+        <strong className="text-amber-700">قضاء</strong> = صليتها بعد خروج وقتها.
+      </p>
       <ErrorAlert message={saveError} className="mt-3" />
-    </div>
+    </Card>
   );
 }

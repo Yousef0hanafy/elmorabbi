@@ -85,6 +85,7 @@ export function FastingTracker({ initialFasting }: FastingTrackerProps) {
         <button
           type="button"
           onClick={() => handleSelect("voluntary")}
+          aria-pressed={fasting === "voluntary"}
           disabled={isPending}
           className={`relative flex flex-col items-center justify-center py-3.5 px-2 rounded-2xl text-center font-bold text-xs transition-all duration-200 border ${
             fasting === "voluntary"
@@ -110,6 +111,7 @@ export function FastingTracker({ initialFasting }: FastingTrackerProps) {
         <button
           type="button"
           onClick={() => handleSelect("fard")}
+          aria-pressed={fasting === "fard"}
           disabled={isPending}
           className={`relative flex flex-col items-center justify-center py-3.5 px-2 rounded-2xl text-center font-bold text-xs transition-all duration-200 border ${
             fasting === "fard"
@@ -135,6 +137,7 @@ export function FastingTracker({ initialFasting }: FastingTrackerProps) {
         <button
           type="button"
           onClick={() => handleSelect("none")}
+          aria-pressed={fasting === "none"}
           disabled={isPending}
           className={`relative flex flex-col items-center justify-center py-3.5 px-2 rounded-2xl text-center font-bold text-xs transition-all duration-200 border ${
             fasting === "none"

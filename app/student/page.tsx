@@ -5,13 +5,10 @@ import { PrayerTracker } from "@/components/student/PrayerTracker";
 import { QuranTracker } from "@/components/student/QuranTracker";
 import { AdhkarTracker } from "@/components/student/AdhkarTracker";
 import { FastingTracker } from "@/components/student/FastingTracker";
-import { WeeklyProgressChart } from "@/components/student/WeeklyProgressChart";
-import { BadgesSection } from "@/components/student/BadgesSection";
-import { HalaqahLeaderboard } from "@/components/student/HalaqahLeaderboard";
 import { DailyReflection } from "@/components/student/DailyReflection";
-import { SheikhFeedbackFeed } from "@/components/student/SheikhFeedbackFeed";
+import { LatestGuidance } from "@/components/student/LatestGuidance";
 import { requireRole } from "@/lib/auth";
-import { countCompletedDeeds, countOnTimePrayers, TOTAL_DAILY_DEEDS } from "@/lib/scoring";
+import { countCompletedDeeds, TOTAL_DAILY_DEEDS } from "@/lib/scoring";
 import { dataService } from "@/lib/data-service";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
@@ -22,31 +19,15 @@ export default async function StudentDashboardPage() {
   const studentId = session.id;
   const studentName = session.name;
 
-  const [profile, todayLog, feedbacks, historyLogs] = await Promise.all([
+  const [profile, todayLog, feedbacks] = await Promise.all([
     dataService.getStudentProfile(studentId),
     dataService.getTodayLog(studentId),
     dataService.getFeedbackForStudent(studentId),
-    dataService.getStudentHistory(studentId, 7),
   ]);
 
-  const sheikh = profile?.sheikhId
-    ? await dataService.getUserById(profile.sheikhId)
-    : null;
-
-  // Only expose what the leaderboard renders: no emails, phones, logs or notes of peers
-  const peers = profile?.sheikhId
-    ? (await dataService.getStudentsForSheikh(profile.sheikhId)).map((p) => ({
-        id: p.id,
-        name: p.name,
-        profile: { streakDays: p.profile.streakDays, level: p.profile.level },
-        completedDeeds: p.completedDeeds,
-        completionRate: p.completionRate,
-      }))
-    : [];
-
+  const hasSheikh = Boolean(profile?.sheikhId);
   const completedDeeds = countCompletedDeeds(todayLog);
   const streakDays = profile?.streakDays ?? 0;
-  const weeklyQuranPages = historyLogs.reduce((acc, log) => acc + log.quranPages, 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9] pb-24 md:pb-12 font-sans" dir="rtl">
@@ -54,7 +35,7 @@ export default async function StudentDashboardPage() {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
         {/* Sheikh Notice Banner if not yet assigned */}
-        {!sheikh && (
+        {!hasSheikh && (
           <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-xs">
             <div className="flex items-center gap-2.5">
               <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
@@ -94,37 +75,11 @@ export default async function StudentDashboardPage() {
           />
         </div>
 
-        {/* Fasting Tracker Full Width */}
         <FastingTracker initialFasting={todayLog.fasting} />
 
-        {/* Weekly Commitment Analytics */}
-        <WeeklyProgressChart history={historyLogs} />
-
-        {/* Gamification Badges Section */}
-        <BadgesSection
-          streakDays={streakDays}
-          onTimePrayersToday={countOnTimePrayers(todayLog)}
-          fajrInCongregation={todayLog.fajr === "congregation"}
-          adhkarCompletedToday={todayLog.adhkarMorning && todayLog.adhkarEvening}
-          isFasting={todayLog.fasting !== "none"}
-          weeklyQuranPages={weeklyQuranPages}
-        />
-
-        {/* Halaqah Leaderboard & Sheikh Feedbacks */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <HalaqahLeaderboard
-            peers={peers}
-            currentStudentId={studentId}
-            halaqahName={sheikh?.halaqahName || "المربي"}
-          />
-          <SheikhFeedbackFeed
-            feedbacks={feedbacks}
-            sheikhName={sheikh?.name}
-          />
-        </div>
-
-        {/* Daily Reflection & Notes */}
         <DailyReflection initialNotes={todayLog.notes || ""} />
+
+        {hasSheikh && <LatestGuidance latest={feedbacks[0]} total={feedbacks.length} />}
       </main>
 
       <BottomNav role="student" />
