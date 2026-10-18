@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Cairo, Amiri } from "next/font/google";
 import "./globals.css";
 
@@ -21,8 +21,17 @@ export const metadata: Metadata = {
   description: "منصة إسلامية تربوية متكاملة تجمع الطالب بالشيخ والمعلم لمتابعة الصلوات، الأذكار، ورد القرآن، وبناء العادات الصالحة والتزكية المستمرة.",
   icons: {
     icon: "/logo.jpg",
-    apple: "/logo.jpg",
+    apple: "/icon-192.png",
   },
+  appleWebApp: {
+    capable: true,
+    title: "المربي",
+    statusBarStyle: "default",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#064e3b",
 };
 
 export default function RootLayout({

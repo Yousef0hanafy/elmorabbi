@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Header } from "@/components/shared/Header";
 import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import {
   BookOpen,
   CheckCircle2,
@@ -14,7 +15,11 @@ import {
   Clock,
 } from "lucide-react";
 
-export default async function HomePage() {
+interface HomePageProps {
+  searchParams: Promise<{ source?: string }>;
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
   const session = await getSession();
   const primary = !session
     ? { href: "/register", label: "ابدأ رحلتك الآن" }
@@ -23,6 +28,11 @@ export default async function HomePage() {
     : session.role === "admin"
     ? { href: "/admin", label: "لوحة الإدارة" }
     : { href: "/student", label: "تابع وردك اليوم" };
+
+  // The installed app opens at /?source=pwa: members skip the landing page
+  if (session && (await searchParams).source === "pwa") {
+    redirect(primary.href);
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9]">

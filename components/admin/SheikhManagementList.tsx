@@ -246,11 +246,12 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
               </div>
 
               <div>
-                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                <label htmlFor="sheikhmanagementlist-newPassword" className="text-xs font-semibold text-slate-700 block mb-1">
                   كلمة المرور الجديدة
                 </label>
                 <div className="relative">
                   <input
+                    id="sheikhmanagementlist-newPassword"
                     name="newPassword"
                     type="text"
                     required
@@ -319,11 +320,13 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">
+                  <label htmlFor="sheikhmanagementlist-name" className="font-semibold text-slate-700 block mb-1">
                     اسم الشيخ
                   </label>
                   <input
+                    id="sheikhmanagementlist-name"
                     name="name"
+                    autoComplete="off"
                     defaultValue={editSheikh.name}
                     required
                     className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 text-slate-900"
@@ -331,11 +334,13 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">
+                  <label htmlFor="sheikhmanagementlist-email" className="font-semibold text-slate-700 block mb-1">
                     البريد الإلكتروني
                   </label>
                   <input
+                    id="sheikhmanagementlist-email"
                     name="email"
+                    autoComplete="off"
                     type="email"
                     defaultValue={editSheikh.email}
                     required
@@ -346,10 +351,11 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">
+                  <label htmlFor="sheikhmanagementlist-halaqahName" className="font-semibold text-slate-700 block mb-1">
                     اسم الحلقة
                   </label>
                   <input
+                    id="sheikhmanagementlist-halaqahName"
                     name="halaqahName"
                     defaultValue={editSheikh.halaqahName}
                     required
@@ -358,10 +364,11 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
                 </div>
 
                 <div>
-                  <label className="font-semibold text-slate-700 block mb-1">
+                  <label htmlFor="sheikhmanagementlist-title" className="font-semibold text-slate-700 block mb-1">
                     الصفة أو اللقب العلمي
                   </label>
                   <input
+                    id="sheikhmanagementlist-title"
                     name="title"
                     defaultValue={editSheikh.title}
                     required
@@ -371,10 +378,11 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">
+                <label htmlFor="sheikhmanagementlist-bio" className="font-semibold text-slate-700 block mb-1">
                   النبذة التعريفية
                 </label>
                 <textarea
+                  id="sheikhmanagementlist-bio"
                   name="bio"
                   rows={2}
                   defaultValue={editSheikh.bio || ""}
@@ -426,11 +434,13 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
             <ErrorAlert message={errorMessage} />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">
+                <label htmlFor="sheikhmanagementlist-name" className="font-semibold text-slate-700 block mb-1">
                   اسم الشيخ
                 </label>
                 <input
+                  id="sheikhmanagementlist-name"
                   name="name"
+                  autoComplete="off"
                   required
                   placeholder="فضيلة الشيخ..."
                   className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900"
@@ -438,11 +448,13 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">
+                <label htmlFor="sheikhmanagementlist-email" className="font-semibold text-slate-700 block mb-1">
                   البريد الإلكتروني (لتسجيل الدخول)
                 </label>
                 <input
+                  id="sheikhmanagementlist-email"
                   name="email"
+                  autoComplete="off"
                   type="email"
                   required
                   placeholder="sheikh@example.com"
@@ -453,10 +465,11 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">
+                <label htmlFor="sheikhmanagementlist-password" className="font-semibold text-slate-700 block mb-1">
                   كلمة المرور الابتدائية
                 </label>
                 <input
+                  id="sheikhmanagementlist-password"
                   name="password"
                   type="text"
                   required
@@ -468,10 +481,11 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">
+                <label htmlFor="sheikhmanagementlist-halaqahName" className="font-semibold text-slate-700 block mb-1">
                   اسم الحلقة
                 </label>
                 <input
+                  id="sheikhmanagementlist-halaqahName"
                   name="halaqahName"
                   required
                   placeholder="مثال: حلقة الهدى والنور"
@@ -481,10 +495,11 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
             </div>
 
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">
+              <label htmlFor="sheikhmanagementlist-title" className="font-semibold text-slate-700 block mb-1">
                 الصفة أو اللقب العلمي
               </label>
               <input
+                id="sheikhmanagementlist-title"
                 name="title"
                 required
                 placeholder="مثال: إمام ومدرس التجويد، مجاز في القراءات"
@@ -493,10 +508,11 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
             </div>
 
             <div>
-              <label className="font-semibold text-slate-700 block mb-1">
+              <label htmlFor="sheikhmanagementlist-bio" className="font-semibold text-slate-700 block mb-1">
                 نبذة تعريفية (اختياري)
               </label>
               <textarea
+                id="sheikhmanagementlist-bio"
                 name="bio"
                 rows={2}
                 placeholder="نبذة مختصرة عن الشيخ ومنهجه التربوي..."

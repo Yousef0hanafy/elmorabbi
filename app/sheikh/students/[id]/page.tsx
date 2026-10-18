@@ -247,10 +247,11 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
 
           <form action={handleSendFeedback} className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+              <label htmlFor="page-type" className="text-xs font-semibold text-slate-700 block mb-1.5">
                 نوع التوجيه:
               </label>
               <select
+                id="page-type"
                 name="type"
                 className="text-xs rounded-xl border border-slate-200 p-2.5 bg-slate-50 text-slate-800 focus:outline-hidden focus:border-amber-500"
               >
@@ -262,10 +263,11 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+              <label htmlFor="page-content" className="text-xs font-semibold text-slate-700 block mb-1.5">
                 نص التوجيه:
               </label>
               <textarea
+                id="page-content"
                 name="content"
                 rows={3}
                 required

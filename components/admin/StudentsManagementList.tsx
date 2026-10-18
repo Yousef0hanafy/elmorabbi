@@ -215,10 +215,11 @@ export function StudentsManagementList({
               </div>
 
               <div>
-                <label className="font-semibold text-slate-700 block mb-1">
+                <label htmlFor="studentsmanagementlist-newSheikhId" className="font-semibold text-slate-700 block mb-1">
                   اختر الشيخ المربي الجديد
                 </label>
                 <select
+                  id="studentsmanagementlist-newSheikhId"
                   name="newSheikhId"
                   required
                   defaultValue={selectedStudent.sheikhId || ""}
