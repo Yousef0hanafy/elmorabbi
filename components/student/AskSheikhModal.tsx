@@ -19,6 +19,7 @@ export function AskSheikhModal({
   const [content, setContent] = useState("");
   const [category, setCategory] = useState("نصيحة تربوية");
   const [isSent, setIsSent] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
   if (!isOpen) return null;
@@ -35,9 +36,12 @@ export function AskSheikhModal({
     e.preventDefault();
     if (!content.trim() || isPending) return;
 
+    setErrorMessage(null);
     startTransition(async () => {
       const res = await sendStudentQuestionAction(content.trim(), category);
-      if (res.success) {
+      if (res.error) {
+        setErrorMessage(res.error);
+      } else if (res.success) {
         setIsSent(true);
         try {
           confetti({
@@ -133,6 +137,12 @@ export function AskSheikhModal({
                 className="w-full text-xs p-3.5 rounded-2xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 resize-none"
               />
             </div>
+
+            {errorMessage && (
+              <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+                {errorMessage}
+              </div>
+            )}
 
             {/* Hint */}
             <div className="bg-emerald-50/70 rounded-2xl p-3 text-[11px] text-emerald-900 flex items-center gap-2 border border-emerald-100">

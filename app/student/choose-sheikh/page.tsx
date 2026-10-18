@@ -1,24 +1,23 @@
 import { Header } from "@/components/shared/Header";
 import { BottomNav } from "@/components/shared/BottomNav";
-import { getSession } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { dataService } from "@/lib/data-service";
 import { ChooseSheikhDirectory } from "@/components/student/ChooseSheikhDirectory";
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 
 export default async function ChooseSheikhPage() {
-  const session = await getSession();
+  const session = await requireRole("student");
 
-  // Strict Authentication: Only students can choose a sheikh
-  if (!session || session.role !== "student") {
-    redirect("/login?role=student");
-  }
-
-  const sheikhs = await dataService.getAllSheikhs();
-  const currentProfile = session?.id
-    ? await dataService.getStudentProfile(session.id)
-    : null;
+  // Public directory fields only: sheikhs' emails and phones stay on the server
+  const sheikhs = (await dataService.getAllSheikhs()).map((s) => ({
+    id: s.id,
+    name: s.name,
+    title: s.title,
+    bio: s.bio,
+    halaqahName: s.halaqahName,
+  }));
+  const currentProfile = await dataService.getStudentProfile(session.id);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9] pb-24 md:pb-12">

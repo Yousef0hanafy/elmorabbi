@@ -38,6 +38,7 @@ export function SendFeedbackDialog({
   const [type, setType] = useState<FeedbackType>("advice");
   const [isPending, startTransition] = useTransition();
   const [success, setSuccess] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
@@ -45,9 +46,12 @@ export function SendFeedbackDialog({
     e.preventDefault();
     if (!content.trim()) return;
 
+    setErrorMessage(null);
     startTransition(async () => {
       const res = await sendFeedbackAction(studentId, content, type);
-      if (res.success) {
+      if (res.error) {
+        setErrorMessage(res.error);
+      } else if (res.success) {
         setSuccess(true);
         setTimeout(() => {
           setSuccess(false);
@@ -151,6 +155,11 @@ export function SendFeedbackDialog({
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {errorMessage && (
+            <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+              {errorMessage}
+            </div>
+          )}
           <div>
             <label className="text-xs font-semibold text-slate-700 block mb-1.5">
               نص الرسالة والتوجيه:

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { UserCheck, Check, Search, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
 
 interface ChooseSheikhDirectoryProps {
-  sheikhs: UserRecord[];
+  sheikhs: Pick<UserRecord, "id" | "name" | "title" | "bio" | "halaqahName">[];
   currentSheikhId?: string | null;
 }
 

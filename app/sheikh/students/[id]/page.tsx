@@ -1,8 +1,9 @@
 import { Header } from "@/components/shared/Header";
 import { BottomNav } from "@/components/shared/BottomNav";
-import { getSession } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { dataService } from "@/lib/data-service";
 import { sendFeedbackAction } from "@/lib/actions/sheikh-actions";
+import { FEEDBACK_TYPES, isOneOf } from "@/lib/validation";
 import { StudentFeedbackHistory } from "@/components/sheikh/StudentFeedbackHistory";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -28,11 +29,11 @@ interface StudentDetailPageProps {
 
 export default async function StudentDetailPage({ params }: StudentDetailPageProps) {
   const { id } = await params;
-  const session = await getSession();
+  const session = await requireRole("sheikh");
 
-  // Strict Authentication: Only Sheikhs can view this page
-  if (!session || session.role !== "sheikh") {
-    redirect("/login?role=sheikh");
+  // A sheikh may only view students enrolled in their own halaqah
+  if (!(await dataService.isStudentOfSheikh(id, session.id))) {
+    notFound();
   }
 
   const student = await dataService.getUserById(id);
@@ -49,7 +50,8 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
   async function handleSendFeedback(formData: FormData) {
     "use server";
     const content = formData.get("content") as string;
-    const type = (formData.get("type") as any) || "advice";
+    const rawType = formData.get("type");
+    const type = isOneOf(FEEDBACK_TYPES, rawType) ? rawType : "advice";
     if (content) {
       await sendFeedbackAction(id, content, type);
       redirect(`/sheikh/students/${id}`);

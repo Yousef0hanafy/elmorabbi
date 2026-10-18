@@ -1,19 +1,13 @@
 import { Header } from "@/components/shared/Header";
 import { BottomNav } from "@/components/shared/BottomNav";
-import { getSession } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { dataService } from "@/lib/data-service";
 import { SheikhFeedbackFeed } from "@/components/student/SheikhFeedbackFeed";
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { Compass, UserCheck, ArrowRight } from "lucide-react";
 
 export default async function StudentSheikhViewPage() {
-  const session = await getSession();
-
-  // Strict Authentication: Only students can view this page
-  if (!session || session.role !== "student") {
-    redirect("/login?role=student");
-  }
+  const session = await requireRole("student");
 
   const studentId = session.id;
   const profile = await dataService.getStudentProfile(studentId);

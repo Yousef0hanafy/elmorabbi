@@ -10,17 +10,13 @@ import { BadgesSection } from "@/components/student/BadgesSection";
 import { HalaqahLeaderboard } from "@/components/student/HalaqahLeaderboard";
 import { DailyReflection } from "@/components/student/DailyReflection";
 import { SheikhFeedbackFeed } from "@/components/student/SheikhFeedbackFeed";
-import { getSession } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { dataService } from "@/lib/data-service";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 
 export default async function StudentDashboardPage() {
-  const session = await getSession();
-  if (!session || session.role !== "student") {
-    redirect("/login?role=student");
-  }
+  const session = await requireRole("student");
 
   const studentId = session.id;
   const studentName = session.name;
@@ -34,8 +30,15 @@ export default async function StudentDashboardPage() {
     ? await dataService.getUserById(profile.sheikhId)
     : null;
 
+  // Only expose what the leaderboard renders: no emails, phones, logs or notes of peers
   const peers = profile?.sheikhId
-    ? await dataService.getStudentsForSheikh(profile.sheikhId)
+    ? (await dataService.getStudentsForSheikh(profile.sheikhId)).map((p) => ({
+        id: p.id,
+        name: p.name,
+        profile: { streakDays: p.profile.streakDays, level: p.profile.level },
+        completedDeeds: p.completedDeeds,
+        completionRate: p.completionRate,
+      }))
     : [];
 
   // Compute completed deeds

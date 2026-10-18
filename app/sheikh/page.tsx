@@ -1,21 +1,15 @@
-import { redirect } from "next/navigation";
 import { Header } from "@/components/shared/Header";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { SheikhStats } from "@/components/sheikh/SheikhStats";
 import { SheikhWelcomeBanner } from "@/components/sheikh/SheikhWelcomeBanner";
 import { SheikhQuestionsFeed } from "@/components/sheikh/SheikhQuestionsFeed";
 import { StudentDirectory } from "@/components/sheikh/StudentDirectory";
-import { getSession } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { dataService } from "@/lib/data-service";
 import { Users, Sparkles } from "lucide-react";
 
 export default async function SheikhDashboardPage() {
-  const session = await getSession();
-
-  // Strict Authentication: If not logged in as a Sheikh, redirect to login
-  if (!session || session.role !== "sheikh") {
-    redirect("/login?role=sheikh");
-  }
+  const session = await requireRole("sheikh");
 
   const sheikhId = session.id;
   const sheikhUser = await dataService.getUserById(sheikhId);

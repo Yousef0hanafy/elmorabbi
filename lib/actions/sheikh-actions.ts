@@ -3,11 +3,18 @@
 import { revalidatePath } from "next/cache";
 import { dataService } from "../data-service";
 import { getSession } from "../auth";
+import { cleanText, FEEDBACK_TYPES, isOneOf, MAX_MESSAGE_LENGTH } from "../validation";
 
 export async function chooseSheikhAction(sheikhId: string) {
   const session = await getSession();
   if (!session || session.role !== "student") {
     return { error: "غير مصرح" };
+  }
+
+  // Students may only join approved sheikhs
+  const activeSheikhs = await dataService.getAllSheikhs();
+  if (!activeSheikhs.some((s) => s.id === sheikhId)) {
+    return { error: "هذا الشيخ غير متاح حالياً" };
   }
 
   await dataService.assignSheikhToStudent(session.id, sheikhId);
@@ -26,8 +33,18 @@ export async function sendFeedbackAction(
     return { error: "غير مصرح، فقط المشرف أو الشيخ يمكنه إرسال التوجيهات" };
   }
 
-  if (!content.trim()) {
-    return { error: "لا يمكن إرسال رسالة فارغة" };
+  const text = cleanText(content, MAX_MESSAGE_LENGTH);
+  if (!text) {
+    return { error: "لا يمكن إرسال رسالة فارغة أو طويلة جداً" };
+  }
+
+  if (!isOneOf(FEEDBACK_TYPES, type)) {
+    return { error: "نوع التوجيه غير صالح" };
+  }
+
+  // A sheikh can only message students in their own halaqah
+  if (!(await dataService.isStudentOfSheikh(studentId, session.id))) {
+    return { error: "هذا الطالب ليس من طلاب حلقتك" };
   }
 
   const sheikhUser = await dataService.getUserById(session.id);
@@ -37,7 +54,7 @@ export async function sendFeedbackAction(
     sheikhId: session.id,
     studentId,
     sheikhName,
-    content,
+    content: text,
     type,
   });
 
@@ -56,8 +73,13 @@ export async function broadcastSheikhMessageAction(
     return { error: "غير مصرح" };
   }
 
-  if (!content.trim()) {
-    return { error: "لا يمكن إرسال رسالة فارغة" };
+  const text = cleanText(content, MAX_MESSAGE_LENGTH);
+  if (!text) {
+    return { error: "لا يمكن إرسال رسالة فارغة أو طويلة جداً" };
+  }
+
+  if (!isOneOf(FEEDBACK_TYPES, type)) {
+    return { error: "نوع التوجيه غير صالح" };
   }
 
   const sheikhUser = await dataService.getUserById(session.id);
@@ -74,7 +96,7 @@ export async function broadcastSheikhMessageAction(
         sheikhId: session.id,
         studentId: st.id || st.profile.userId,
         sheikhName,
-        content: `[توجيه عام للحلقة]: ${content.trim()}`,
+        content: `[توجيه عام للحلقة]: ${text}`,
         type,
       })
     )
