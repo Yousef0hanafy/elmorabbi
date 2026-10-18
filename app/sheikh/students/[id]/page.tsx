@@ -1,5 +1,5 @@
 import { Header } from "@/components/shared/Header";
-import { BottomNav } from "@/components/shared/BottomNav";
+import { SheikhBottomNav } from "@/components/shared/RoleBottomNav";
 import { requireRole } from "@/lib/auth";
 import { dataService } from "@/lib/data-service";
 import { sendFeedbackAction } from "@/lib/actions/sheikh-actions";
@@ -288,7 +288,7 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
         <StudentFeedbackHistory feedbacks={feedbacks} />
       </main>
 
-      <BottomNav role="sheikh" />
+      <SheikhBottomNav sheikhId={session.id} />
     </div>
   );
 }

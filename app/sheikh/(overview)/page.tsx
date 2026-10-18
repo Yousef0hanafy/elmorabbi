@@ -1,7 +1,7 @@
-import { needsFollowUp } from "@/lib/scoring";
+import { needsAttention } from "@/lib/scoring";
 import { formatDay, todayDateString } from "@/lib/dates";
 import { Header } from "@/components/shared/Header";
-import { BottomNav } from "@/components/shared/BottomNav";
+import { SheikhBottomNav } from "@/components/shared/RoleBottomNav";
 import { SheikhStats } from "@/components/sheikh/SheikhStats";
 import { SheikhWelcomeBanner } from "@/components/sheikh/SheikhWelcomeBanner";
 import { SheikhQuestionsFeed } from "@/components/sheikh/SheikhQuestionsFeed";
@@ -14,9 +14,11 @@ export default async function SheikhDashboardPage() {
   const session = await requireRole("sheikh");
 
   const sheikhId = session.id;
-  const sheikhUser = await dataService.getUserById(sheikhId);
-  const students = await dataService.getStudentsForSheikh(sheikhId);
-  const inquiries = await dataService.getStudentInquiriesForSheikh(sheikhId);
+  const [sheikhUser, students, inquiries] = await Promise.all([
+    dataService.getUserById(sheikhId),
+    dataService.getStudentsForSheikh(sheikhId),
+    dataService.getStudentInquiriesForSheikh(sheikhId),
+  ]);
 
   // Compute stats
   const totalStudents = students.length;
@@ -31,7 +33,17 @@ export default async function SheikhDashboardPage() {
     (s) => s.todayLog?.fajr === "congregation" || s.todayLog?.fajr === "ontime"
   ).length;
 
-  const needsAttentionCount = students.filter((s) => needsFollowUp(s.todayLog)).length;
+  const needsAttentionCount = students.filter(needsAttention).length;
+
+  // Only the fields the list renders reach the browser
+  const rows = students.map((s) => ({
+    id: s.id,
+    name: s.name,
+    profile: { streakDays: s.profile.streakDays, level: s.profile.level },
+    todayLog: s.todayLog,
+    completionRate: s.completionRate,
+    alerts: s.alerts,
+  }));
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9] pb-24 md:pb-12 font-sans" dir="rtl">
@@ -73,11 +85,11 @@ export default async function SheikhDashboardPage() {
             </div>
           </div>
 
-          <StudentDirectory students={students} />
+          <StudentDirectory students={rows} />
         </section>
       </main>
 
-      <BottomNav role="sheikh" />
+      <SheikhBottomNav sheikhId={session.id} />
     </div>
   );
 }
