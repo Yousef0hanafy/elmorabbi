@@ -308,24 +308,8 @@ export const dataService = {
       }
     }
 
-    if (email.toLowerCase().includes("sheikh")) {
-      return {
-        id: "sheikh-mahmoud",
-        name: "الشيخ محمود عبد الحليم",
-        email,
-        password: "password123",
-        role: "sheikh",
-        status: "active",
-      };
-    }
-    return {
-      id: "student-ahmed",
-      name: "أحمد بن عبد الرحمن",
-      email,
-      password: "password123",
-      role: "student",
-      status: "active",
-    };
+    // No mock fallback here: authentication must only ever succeed against real records
+    return undefined;
   },
 
   createUser: async (user: UserRecord): Promise<UserRecord> => {
@@ -335,7 +319,7 @@ export const dataService = {
           id: user.id,
           name: user.name,
           email: user.email,
-          password: user.password || "password123",
+          password: user.password ?? "",
           role: user.role,
           phone: user.phone,
         });
@@ -389,6 +373,21 @@ export const dataService = {
       level: "طالب مواظب (المستوى الثاني)",
       status: "active",
     };
+  },
+
+  // Ownership check used for authorization: never falls back to mock data
+  isStudentOfSheikh: async (studentId: string, sheikhId: string): Promise<boolean> => {
+    if (!db) return false;
+    try {
+      const [p] = await db
+        .select({ sheikhId: schema.studentProfiles.sheikhId })
+        .from(schema.studentProfiles)
+        .where(eq(schema.studentProfiles.userId, studentId));
+      return Boolean(p && p.sheikhId === sheikhId);
+    } catch (err) {
+      console.warn("Neon query error in isStudentOfSheikh:", err);
+      return false;
+    }
   },
 
   assignSheikhToStudent: async (studentId: string, sheikhId: string): Promise<void> => {
@@ -853,31 +852,30 @@ export const dataService = {
   },
 
   // Admin & Security Management
-  updateUserPassword: async (userId: string, newPassword: string): Promise<boolean> => {
+  updateUserPassword: async (userId: string, passwordHash: string): Promise<boolean> => {
     if (db) {
       try {
         await db
           .update(schema.users)
-          .set({ password: newPassword })
+          .set({ password: passwordHash })
           .where(eq(schema.users.id, userId));
         return true;
       } catch (err) {
         console.warn("Failed to update password in Neon:", err);
       }
     }
-    return true;
+    return false;
   },
 
   createNewSheikh: async (data: {
     name: string;
     email: string;
-    password?: string;
+    passwordHash: string;
     title: string;
     halaqahName: string;
     bio?: string;
   }): Promise<UserRecord> => {
-    const id = `sheikh-${Date.now()}`;
-    const password = data.password || "123456";
+    const id = `sheikh-${crypto.randomUUID()}`;
 
     if (db) {
       try {
@@ -885,13 +883,13 @@ export const dataService = {
           id,
           name: data.name,
           email: data.email,
-          password,
+          password: data.passwordHash,
           role: "sheikh",
           avatar: "https://images.unsplash.com/photo-1544717305-2782549b5136?w=150&auto=format&fit=crop&q=80",
         });
 
         await db.insert(schema.sheikhProfiles).values({
-          id: `sp-${Date.now()}`,
+          id: `shp-${id}`,
           userId: id,
           title: data.title,
           bio: data.bio || "",
@@ -912,53 +910,6 @@ export const dataService = {
       title: data.title,
       halaqahName: data.halaqahName,
       bio: data.bio,
-    };
-  },
-
-  getPlatformStats: async () => {
-    let totalUsers = 4;
-    let totalSheikhs = 1;
-    let totalStudents = 3;
-    let totalLogs = 10;
-    const isLive = Boolean(process.env.DATABASE_URL);
-
-    if (db) {
-      try {
-        const usersList = await db.select().from(schema.users);
-        totalUsers = usersList.length;
-        totalSheikhs = usersList.filter((u) => u.role === "sheikh").length;
-        totalStudents = usersList.filter((u) => u.role === "student").length;
-
-        const logsList = await db.select().from(schema.dailyLogs);
-        totalLogs = logsList.length;
-      } catch (err) {
-        console.warn("Failed to fetch live counts:", err);
-      }
-    }
-
-    let maskedUrl = "postgresql://neondb_owner:••••••••••••@ep-broad-leaf-b1ld57ay-pooler.c-5.eu-central-1.aws.neon.tech/neondb?sslmode=require";
-    let host = "ep-broad-leaf-b1ld57ay-pooler.c-5.eu-central-1.aws.neon.tech";
-    let region = "AWS eu-central-1 (Frankfurt)";
-
-    if (process.env.DATABASE_URL) {
-      try {
-        const url = new URL(process.env.DATABASE_URL);
-        host = url.host;
-        maskedUrl = `${url.protocol}//${url.username}:••••••••••••@${url.host}${url.pathname}${url.search}`;
-      } catch {
-        // use default sanitized
-      }
-    }
-
-    return {
-      totalUsers,
-      totalSheikhs,
-      totalStudents,
-      totalLogs,
-      isLive,
-      host,
-      region,
-      maskedUrl,
     };
   },
 

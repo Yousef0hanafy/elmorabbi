@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
+import bcrypt from "bcryptjs";
 import * as schema from "./schema";
 
 const connectionString = process.env.DATABASE_URL;
@@ -12,8 +13,13 @@ if (!connectionString) {
 const sql = neon(connectionString);
 const db = drizzle(sql, { schema });
 
+// Demo accounts share one password; override it with SEED_PASSWORD (min 8 chars)
+const seedPassword = process.env.SEED_PASSWORD || "password123";
+
 async function seed() {
   console.log("🌱 Seeding Neon Postgres database...");
+
+  const passwordHash = await bcrypt.hash(seedPassword, 10);
 
   // Insert Users
   const usersToInsert = [
@@ -21,7 +27,7 @@ async function seed() {
       id: "sheikh-mahmoud",
       name: "الشيخ محمود عبد الحليم",
       email: "sheikh@elmorabbi.com",
-      password: "password123",
+      password: passwordHash,
       role: "sheikh" as const,
       avatar: "https://images.unsplash.com/photo-1544717305-2782549b5136?w=150&auto=format&fit=crop&q=80",
       phone: "+20110 123 4567",
@@ -30,7 +36,7 @@ async function seed() {
       id: "student-ahmed",
       name: "أحمد بن عبد الرحمن",
       email: "ahmed@student.com",
-      password: "password123",
+      password: passwordHash,
       role: "student" as const,
       avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
       phone: "+20115 987 6543",
@@ -39,7 +45,7 @@ async function seed() {
       id: "student-omar",
       name: "عمر الفاروق الدوسري",
       email: "omar@student.com",
-      password: "password123",
+      password: passwordHash,
       role: "student" as const,
       avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80",
       phone: "+20114 321 0987",
@@ -48,7 +54,7 @@ async function seed() {
       id: "student-youssef",
       name: "يوسف بن خالد السعيد",
       email: "youssef@student.com",
-      password: "password123",
+      password: passwordHash,
       role: "student" as const,
       avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
       phone: "+20116 456 7890",
@@ -57,7 +63,7 @@ async function seed() {
       id: "admin-root",
       name: "المشرف العام",
       email: "admin@elmorabbi.com",
-      password: "password123",
+      password: passwordHash,
       role: "admin" as const,
     },
   ];
@@ -207,6 +213,7 @@ async function seed() {
   }
 
   console.log("✅ Neon Postgres seeded successfully!");
+  console.log(`🔑 All demo accounts use the password: ${seedPassword}`);
 }
 
 seed()

@@ -1,31 +1,24 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { dataService, UserRecord } from "../data-service";
 import { setSession, clearSession } from "../auth";
+import { hashPassword, verifyPassword } from "../password";
+import { isValidPassword } from "../validation";
 
 export async function loginAction(formData: FormData): Promise<void> {
-  const email = (formData.get("email") as string)?.trim().toLowerCase();
-  const password = formData.get("password") as string;
-  const expectedRole = (formData.get("role") as "student" | "sheikh") || "student";
+  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
+  const password = formData.get("password") as string | null;
+  const expectedRole = formData.get("role") === "sheikh" ? "sheikh" : "student";
 
   if (!email || !password) {
     redirect(`/login?error=missing_fields&role=${expectedRole}`);
   }
 
   const user = await dataService.getUserByEmail(email);
-  if (!user) {
-    redirect(`/login?error=invalid_credentials&role=${expectedRole}&email=${encodeURIComponent(email)}`);
-  }
+  const isValid = await verifyPassword(password, user?.password);
 
-  // Password Verification (matches user's password or demo fallback)
-  const isValidPassword =
-    user.password === password ||
-    password === "password123" ||
-    password === "demo123";
-
-  if (!isValidPassword) {
+  if (!user || !isValid) {
     redirect(`/login?error=invalid_credentials&role=${expectedRole}&email=${encodeURIComponent(email)}`);
   }
 
@@ -61,14 +54,19 @@ export async function loginAction(formData: FormData): Promise<void> {
 }
 
 export async function registerAction(formData: FormData): Promise<void> {
-  const name = (formData.get("name") as string)?.trim();
-  const email = (formData.get("email") as string)?.trim().toLowerCase();
-  const password = formData.get("password") as string;
-  const role = (formData.get("role") as "student" | "sheikh") || "student";
-  const phone = (formData.get("phone") as string)?.trim();
+  const name = (formData.get("name") as string | null)?.trim();
+  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
+  const password = formData.get("password");
+  // Only students and sheikhs can self-register; admins are never created here
+  const role = formData.get("role") === "sheikh" ? "sheikh" : "student";
+  const phone = (formData.get("phone") as string | null)?.trim();
 
   if (!name || !email || !password) {
     redirect(`/register?error=missing_fields&role=${role}`);
+  }
+
+  if (!isValidPassword(password)) {
+    redirect(`/register?error=weak_password&role=${role}`);
   }
 
   const existing = await dataService.getUserByEmail(email);
@@ -76,15 +74,15 @@ export async function registerAction(formData: FormData): Promise<void> {
     redirect(`/register?error=email_exists&role=${role}&email=${encodeURIComponent(email)}`);
   }
 
-  const title = (formData.get("title") as string)?.trim();
-  const halaqahName = (formData.get("halaqahName") as string)?.trim();
-  const bio = (formData.get("bio") as string)?.trim();
+  const title = (formData.get("title") as string | null)?.trim();
+  const halaqahName = (formData.get("halaqahName") as string | null)?.trim();
+  const bio = (formData.get("bio") as string | null)?.trim();
 
   const newUser: UserRecord = {
-    id: `user-${Date.now()}`,
+    id: `user-${crypto.randomUUID()}`,
     name,
     email,
-    password,
+    password: await hashPassword(password),
     role,
     phone: phone || undefined,
     title: title || undefined,
@@ -107,23 +105,4 @@ export async function registerAction(formData: FormData): Promise<void> {
 export async function logoutAction(): Promise<void> {
   await clearSession();
   redirect("/login");
-}
-
-export async function switchDemoUserAction(userId: string): Promise<void> {
-  const user = await dataService.getUserById(userId);
-  if (user) {
-    await setSession(user);
-    revalidatePath("/");
-    revalidatePath("/student");
-    revalidatePath("/sheikh");
-    revalidatePath("/admin");
-
-    if (user.role === "sheikh") {
-      redirect("/sheikh");
-    } else if (user.role === "admin") {
-      redirect("/admin");
-    } else {
-      redirect("/student");
-    }
-  }
 }

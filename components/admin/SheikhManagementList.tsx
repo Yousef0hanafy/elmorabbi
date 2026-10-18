@@ -1,5 +1,6 @@
 "use client";
 
+import { MIN_PASSWORD_LENGTH } from "@/lib/validation";
 import { useState, useTransition } from "react";
 import { UserRecord } from "@/lib/data-service";
 import {
@@ -237,6 +238,8 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
                       name="newPassword"
                       type="text"
                       required
+                      minLength={MIN_PASSWORD_LENGTH}
+                      autoComplete="new-password"
                       placeholder="أدخل كلمة المرور الجديدة"
                       className="w-full text-xs rounded-xl border border-slate-200 p-3 bg-slate-50 text-slate-900 focus:outline-hidden focus:border-amber-500 focus:bg-white transition-all font-mono"
                     />
@@ -441,7 +444,9 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
                     name="password"
                     type="text"
                     required
-                    defaultValue="123456"
+                    minLength={MIN_PASSWORD_LENGTH}
+                    autoComplete="new-password"
+                    placeholder={`${MIN_PASSWORD_LENGTH} أحرف على الأقل`}
                     className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900 font-mono"
                   />
                 </div>

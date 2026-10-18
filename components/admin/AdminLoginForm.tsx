@@ -45,8 +45,8 @@ export function AdminLoginForm() {
                 name="email"
                 type="email"
                 required
-                defaultValue="admin@elmorabbi.com"
-                placeholder="admin@elmorabbi.com"
+                autoComplete="username"
+                placeholder="admin@example.com"
                 className="w-full text-xs rounded-xl border border-slate-700 p-3 bg-slate-800/80 text-white placeholder-slate-500 focus:outline-hidden focus:border-emerald-500 focus:bg-slate-800 transition-all font-mono"
               />
               <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />

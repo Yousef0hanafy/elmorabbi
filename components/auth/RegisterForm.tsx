@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { MIN_PASSWORD_LENGTH } from "@/lib/validation";
 import { registerAction } from "@/lib/actions/auth-actions";
 import {
   GraduationCap,
@@ -32,6 +33,8 @@ export function RegisterForm({
     errorMessage = "البريد الإلكتروني مسجل بالفعل لدينا. يرجى تسجيل الدخول أو استخدام بريد آخر.";
   } else if (errorCode === "missing_fields") {
     errorMessage = "يرجى ملء جميع الحقول الإلزامية.";
+  } else if (errorCode === "weak_password") {
+    errorMessage = `كلمة المرور يجب ألا تقل عن ${MIN_PASSWORD_LENGTH} أحرف.`;
   }
 
   return (
@@ -182,6 +185,8 @@ export function RegisterForm({
               name="password"
               type="password"
               required
+              minLength={MIN_PASSWORD_LENGTH}
+              autoComplete="new-password"
               placeholder="••••••••"
               className="w-full text-xs sm:text-sm rounded-xl border border-slate-200 py-3 pr-10 pl-3 bg-slate-50/70 text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
             />
