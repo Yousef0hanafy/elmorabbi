@@ -45,8 +45,26 @@ npm run dev
 | `npm run dev` | التطوير |
 | `npm run build` / `npm start` | بناء وتشغيل الإنتاج |
 | `npm run lint` | ESLint |
+| `npm run typecheck` | فحص أنواع TypeScript |
+| `npm test` | اختبارات الوحدة (`tests/unit`): التواريخ، الـ streak، التنبيهات، التحقق من المدخلات |
+| `npm run test:e2e` | اختبارات Playwright (`tests/e2e`) على build حقيقي وقاعدة Postgres (بتعمل seed الأول) |
 | `npm run db:push` | مزامنة `db/schema.ts` مع القاعدة |
 | `npm run db:seed` | إدخال بيانات تجريبية |
+
+## الاختبارات و CI
+
+- **وحدة:** `npm test`، ومش محتاجة قاعدة بيانات.
+- **e2e:** محتاجة قاعدة **تجريبية** (الاختبارات بتعمل `db:seed` عليها) و`SESSION_SECRET`:
+  ```bash
+  export DATABASE_URL=postgresql://postgres@localhost:5432/elmorabbi_test SESSION_SECRET=$(openssl rand -base64 48)
+  npx drizzle-kit push --force && npm run build && npm run test:e2e
+  ```
+- **GitHub Actions** (`.github/workflows/ci.yml`): كل push على `main` وكل PR بيشغّل lint + typecheck + الوحدة + build، وكمان e2e على Postgres 16.
+
+## ملاحظات النشر
+
+- **حماية الدخول من التخمين:** 10 محاولات فاشلة خلال 15 دقيقة لكل IP ولكل بريد، و20 تسجيل في الساعة لكل IP (`lib/rate-limit.ts`). التخزين في ذاكرة السيرفر، يعني بيحمي نسخة واحدة بس. على Vercel أو أي استضافة بأكتر من نسخة، بدّل التخزين بـ Redis/Upstash بنفس الواجهة. وعنوان العميل بيتقري من `x-forwarded-for`، فلازم السيرفر يبقى ورا proxy موثوق بيظبط الهيدر ده.
+- **PWA:** `app/manifest.ts` + أيقونات في `public/`. التطبيق بيتثبّت على الموبايل، ولما يتفتح من الأيقونة المسجّل بيروح للوحته على طول.
 
 ## هيكل المشروع
 
@@ -64,6 +82,9 @@ lib/
   dates.ts           التواريخ بتوقيت مصر (Africa/Cairo)
   labels.ts          تسميات وألوان الصلوات والصيام
   validation.ts      قيم مسموحة وحدود المدخلات
+  rate-limit.ts      حدود محاولات الدخول والتسجيل
+tests/unit/          اختبارات الوحدة (node:test + tsx)
+tests/e2e/           اختبارات Playwright
 db/                  schema + seed + الاتصال
 docs/                وثائق الاكتشاف والقرارات
 ```
