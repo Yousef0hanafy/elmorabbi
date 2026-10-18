@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { dataService } from "../data-service";
+import { dataService, DailyLogRecord } from "../data-service";
 import { getSession } from "../auth";
+import { todayDateString } from "../dates";
 import {
   cleanText,
   FASTING_STATUSES,
@@ -12,7 +13,20 @@ import {
   MAX_QURAN_PAGES,
   PRAYER_KEYS,
   PRAYER_STATUSES,
+  SAVE_ERROR_MESSAGE,
 } from "../validation";
+
+// Writes one field group of today's log; failures are reported to the caller, never swallowed
+async function saveToday(studentId: string, changes: Partial<DailyLogRecord>) {
+  try {
+    await dataService.updateDailyLog({ studentId, date: todayDateString(), ...changes });
+  } catch (err) {
+    console.error("Failed to update daily log:", err);
+    return { error: SAVE_ERROR_MESSAGE };
+  }
+  revalidatePath("/student");
+  return { success: true };
+}
 
 export async function updatePrayerAction(
   prayerName: "fajr" | "dhuhr" | "asr" | "maghrib" | "isha",
@@ -28,15 +42,9 @@ export async function updatePrayerAction(
     return { error: "قيمة غير صالحة" };
   }
 
-  const todayLog = await dataService.getTodayLog(session.id);
-  await dataService.updateDailyLog({
-    studentId: session.id,
-    date: todayLog.date,
+  return saveToday(session.id, {
     [prayerName]: status,
   });
-
-  revalidatePath("/student");
-  return { success: true };
 }
 
 export async function updateQuranAction(read: boolean, pages: number) {
@@ -49,16 +57,10 @@ export async function updateQuranAction(read: boolean, pages: number) {
     return { error: "قيمة غير صالحة" };
   }
 
-  const todayLog = await dataService.getTodayLog(session.id);
-  await dataService.updateDailyLog({
-    studentId: session.id,
-    date: todayLog.date,
+  return saveToday(session.id, {
     quranRead: read,
     quranPages: pages,
   });
-
-  revalidatePath("/student");
-  return { success: true };
 }
 
 export async function updateAdhkarAction(type: "morning" | "evening", completed: boolean) {
@@ -71,15 +73,9 @@ export async function updateAdhkarAction(type: "morning" | "evening", completed:
     return { error: "قيمة غير صالحة" };
   }
 
-  const todayLog = await dataService.getTodayLog(session.id);
-  await dataService.updateDailyLog({
-    studentId: session.id,
-    date: todayLog.date,
+  return saveToday(session.id, {
     [type === "morning" ? "adhkarMorning" : "adhkarEvening"]: completed,
   });
-
-  revalidatePath("/student");
-  return { success: true };
 }
 
 export async function updateNotesAction(notes: string) {
@@ -93,15 +89,9 @@ export async function updateNotesAction(notes: string) {
     return { error: "الملاحظة طويلة جداً" };
   }
 
-  const todayLog = await dataService.getTodayLog(session.id);
-  await dataService.updateDailyLog({
-    studentId: session.id,
-    date: todayLog.date,
+  return saveToday(session.id, {
     notes: notes.trim(),
   });
-
-  revalidatePath("/student");
-  return { success: true };
 }
 
 export async function updateFastingAction(status: "none" | "voluntary" | "fard") {
@@ -114,15 +104,9 @@ export async function updateFastingAction(status: "none" | "voluntary" | "fard")
     return { error: "قيمة غير صالحة" };
   }
 
-  const todayLog = await dataService.getTodayLog(session.id);
-  await dataService.updateDailyLog({
-    studentId: session.id,
-    date: todayLog.date,
+  return saveToday(session.id, {
     fasting: status,
   });
-
-  revalidatePath("/student");
-  return { success: true };
 }
 
 export async function sendStudentQuestionAction(content: string, category: string = "general") {
@@ -132,7 +116,7 @@ export async function sendStudentQuestionAction(content: string, category: strin
   }
 
   const text = cleanText(content, MAX_MESSAGE_LENGTH);
-  const cleanCategory = cleanText(category, 60) ?? "general";
+  const cleanCategory = cleanText(category, 60) ?? "عام";
   if (!text) {
     return { error: "لا يمكن إرسال رسالة فارغة أو طويلة جداً" };
   }
@@ -143,13 +127,17 @@ export async function sendStudentQuestionAction(content: string, category: strin
     return { error: "يجب اختيار الشيخ المشرف أولاً قبل إرسال سؤالك" };
   }
 
-  await dataService.sendFeedback({
-    sheikhId,
-    studentId: session.id,
-    sheikhName: session.name || "الطالب",
-    content: `[استفسار طالب - ${cleanCategory}]: ${text}`,
-    type: "advice",
-  });
+  try {
+    await dataService.sendStudentQuestion({
+      sheikhId,
+      studentId: session.id,
+      content: text,
+      category: cleanCategory,
+    });
+  } catch (err) {
+    console.error("Failed to send student question:", err);
+    return { error: SAVE_ERROR_MESSAGE };
+  }
 
   revalidatePath("/student");
   revalidatePath("/sheikh");

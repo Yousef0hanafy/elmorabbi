@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { dataService, UserRecord } from "../data-service";
+import { dataService, DuplicateEmailError, UserRecord } from "../data-service";
 import { setSession, clearSession } from "../auth";
 import { hashPassword, verifyPassword } from "../password";
 import { isValidPassword } from "../validation";
@@ -90,7 +90,17 @@ export async function registerAction(formData: FormData): Promise<void> {
     bio: bio || undefined,
   };
 
-  await dataService.createUser(newUser);
+  let failure: "email_exists" | "server_error" | null = null;
+  try {
+    await dataService.createUser(newUser);
+  } catch (err) {
+    failure = err instanceof DuplicateEmailError ? "email_exists" : "server_error";
+    if (failure === "server_error") console.error("Registration failed:", err);
+  }
+  // redirect() throws, so it must stay outside the try block
+  if (failure) {
+    redirect(`/register?error=${failure}&role=${role}`);
+  }
 
   // If the registrant is a Sheikh, they must await admin approval
   if (role === "sheikh") {

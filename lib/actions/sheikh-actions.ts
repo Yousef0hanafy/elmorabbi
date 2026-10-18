@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { dataService } from "../data-service";
 import { getSession } from "../auth";
-import { cleanText, FEEDBACK_TYPES, isOneOf, MAX_MESSAGE_LENGTH } from "../validation";
+import { cleanText, FEEDBACK_TYPES, isOneOf, MAX_MESSAGE_LENGTH, SAVE_ERROR_MESSAGE } from "../validation";
 
 export async function chooseSheikhAction(sheikhId: string) {
   const session = await getSession();
@@ -17,7 +17,12 @@ export async function chooseSheikhAction(sheikhId: string) {
     return { error: "هذا الشيخ غير متاح حالياً" };
   }
 
-  await dataService.assignSheikhToStudent(session.id, sheikhId);
+  try {
+    await dataService.assignSheikhToStudent(session.id, sheikhId);
+  } catch (err) {
+    console.error("Failed to assign sheikh:", err);
+    return { error: SAVE_ERROR_MESSAGE };
+  }
   revalidatePath("/student");
   revalidatePath("/sheikh");
   return { success: true };
@@ -50,13 +55,18 @@ export async function sendFeedbackAction(
   const sheikhUser = await dataService.getUserById(session.id);
   const sheikhName = sheikhUser?.name || "الشيخ المشرف";
 
-  await dataService.sendFeedback({
-    sheikhId: session.id,
-    studentId,
-    sheikhName,
-    content: text,
-    type,
-  });
+  try {
+    await dataService.sendFeedback({
+      sheikhId: session.id,
+      studentId,
+      sheikhName,
+      content: text,
+      type,
+    });
+  } catch (err) {
+    console.error("Failed to send feedback:", err);
+    return { error: SAVE_ERROR_MESSAGE };
+  }
 
   revalidatePath("/sheikh");
   revalidatePath(`/sheikh/students/${studentId}`);
@@ -90,17 +100,22 @@ export async function broadcastSheikhMessageAction(
     return { error: "لا يوجد طلاب منضمون لحلقتك حالياً" };
   }
 
-  await Promise.all(
-    students.map((st) =>
-      dataService.sendFeedback({
-        sheikhId: session.id,
-        studentId: st.id || st.profile.userId,
-        sheikhName,
-        content: `[توجيه عام للحلقة]: ${text}`,
-        type,
-      })
-    )
-  );
+  try {
+    await Promise.all(
+      students.map((st) =>
+        dataService.sendFeedback({
+          sheikhId: session.id,
+          studentId: st.id,
+          sheikhName,
+          content: `[توجيه عام للحلقة]: ${text}`,
+          type,
+        })
+      )
+    );
+  } catch (err) {
+    console.error("Failed to broadcast message:", err);
+    return { error: SAVE_ERROR_MESSAGE };
+  }
 
   revalidatePath("/sheikh");
   revalidatePath("/student");

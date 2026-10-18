@@ -1,5 +1,8 @@
-import { db, schema } from "@/db";
-import { eq, and, desc, or, isNull } from "drizzle-orm";
+import { getDb, schema } from "@/db";
+import { eq, and, desc, gte, inArray, ne, or, isNull, count } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { addDays, formatTimestamp, todayDateString } from "./dates";
+import { completionRate, computeStreak, countCompletedDeeds, emptyDailyLog } from "./scoring";
 
 export interface UserRecord {
   id: string;
@@ -28,7 +31,7 @@ export interface StudentProfileRecord {
 export interface DailyLogRecord {
   id: string;
   studentId: string;
-  date: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD (Egypt calendar day)
   fajr: "congregation" | "ontime" | "late" | "missed";
   dhuhr: "congregation" | "ontime" | "late" | "missed";
   asr: "congregation" | "ontime" | "late" | "missed";
@@ -53,818 +56,472 @@ export interface FeedbackRecord {
   createdAt: string;
 }
 
-const getTodayDateString = () => {
-  const d = new Date();
-  return d.toISOString().split("T")[0];
+export class DuplicateEmailError extends Error {
+  constructor() {
+    super("Email already in use");
+  }
+}
+
+// Streaks look back at most this many days
+const STREAK_LOOKBACK_DAYS = 400;
+
+const SHEIKH_DEFAULTS = {
+  title: "مقرئ ومدرس شرعي",
+  halaqahName: "حلقة المربي",
 };
+
+type DailyLogRow = typeof schema.dailyLogs.$inferSelect;
+
+const toLogRecord = (row: DailyLogRow): DailyLogRecord => ({
+  id: row.id,
+  studentId: row.studentId,
+  date: row.date,
+  fajr: row.fajr,
+  dhuhr: row.dhuhr,
+  asr: row.asr,
+  maghrib: row.maghrib,
+  isha: row.isha,
+  quranRead: row.quranRead,
+  quranPages: row.quranPages,
+  adhkarMorning: row.adhkarMorning,
+  adhkarEvening: row.adhkarEvening,
+  fasting: row.fasting,
+  notes: row.notes ?? undefined,
+});
+
+// One query for any number of students: only days where all five prayers were prayed
+async function getStreaks(studentIds: string[]): Promise<Map<string, number>> {
+  const streaks = new Map<string, number>(studentIds.map((id) => [id, 0]));
+  if (studentIds.length === 0) return streaks;
+
+  const today = todayDateString();
+  const rows = await getDb()
+    .select({ studentId: schema.dailyLogs.studentId, date: schema.dailyLogs.date })
+    .from(schema.dailyLogs)
+    .where(
+      and(
+        inArray(schema.dailyLogs.studentId, studentIds),
+        gte(schema.dailyLogs.date, addDays(today, -STREAK_LOOKBACK_DAYS)),
+        ne(schema.dailyLogs.fajr, "missed"),
+        ne(schema.dailyLogs.dhuhr, "missed"),
+        ne(schema.dailyLogs.asr, "missed"),
+        ne(schema.dailyLogs.maghrib, "missed"),
+        ne(schema.dailyLogs.isha, "missed")
+      )
+    );
+
+  const datesByStudent = new Map<string, Set<string>>();
+  for (const row of rows) {
+    if (!datesByStudent.has(row.studentId)) datesByStudent.set(row.studentId, new Set());
+    datesByStudent.get(row.studentId)!.add(row.date);
+  }
+  for (const [studentId, dates] of datesByStudent) {
+    streaks.set(studentId, computeStreak(dates, today));
+  }
+  return streaks;
+}
+
+async function assertEmailAvailable(email: string, exceptUserId?: string): Promise<void> {
+  const [existing] = await getDb()
+    .select({ id: schema.users.id })
+    .from(schema.users)
+    .where(eq(schema.users.email, email.toLowerCase()));
+  if (existing && existing.id !== exceptUserId) {
+    throw new DuplicateEmailError();
+  }
+}
 
 export const dataService = {
   // Users
   getAllSheikhs: async (): Promise<UserRecord[]> => {
-    if (db) {
-      try {
-        const rows = await db
-          .select({
-            id: schema.users.id,
-            name: schema.users.name,
-            email: schema.users.email,
-            role: schema.users.role,
-            avatar: schema.users.avatar,
-            phone: schema.users.phone,
-            title: schema.sheikhProfiles.title,
-            bio: schema.sheikhProfiles.bio,
-            halaqahName: schema.sheikhProfiles.halaqahName,
-            status: schema.sheikhProfiles.status,
-          })
-          .from(schema.users)
-          .leftJoin(
-            schema.sheikhProfiles,
-            eq(schema.users.id, schema.sheikhProfiles.userId)
-          )
-          .where(
-            and(
-              eq(schema.users.role, "sheikh"),
-              or(
-                eq(schema.sheikhProfiles.status, "active"),
-                isNull(schema.sheikhProfiles.status)
-              )
-            )
-          );
+    const rows = await getDb()
+      .select({
+        id: schema.users.id,
+        name: schema.users.name,
+        email: schema.users.email,
+        avatar: schema.users.avatar,
+        phone: schema.users.phone,
+        title: schema.sheikhProfiles.title,
+        bio: schema.sheikhProfiles.bio,
+        halaqahName: schema.sheikhProfiles.halaqahName,
+        status: schema.sheikhProfiles.status,
+      })
+      .from(schema.users)
+      .leftJoin(schema.sheikhProfiles, eq(schema.users.id, schema.sheikhProfiles.userId))
+      .where(
+        and(
+          eq(schema.users.role, "sheikh"),
+          or(eq(schema.sheikhProfiles.status, "active"), isNull(schema.sheikhProfiles.status))
+        )
+      );
 
-        return rows.map((r) => ({
-          ...r,
-          role: "sheikh" as const,
-          avatar: r.avatar ?? undefined,
-          phone: r.phone ?? undefined,
-          title: r.title ?? "مقرئ ومدرس شرعي",
-          bio: r.bio ?? "",
-          halaqahName: r.halaqahName ?? "حلقة المربي",
-          status: (r.status as "active") || "active",
-        }));
-      } catch (err) {
-        console.warn("Neon query error, falling back to mock:", err);
-      }
-    }
-
-    return [
-      {
-        id: "sheikh-mahmoud",
-        name: "الشيخ محمود عبد الحليم",
-        email: "sheikh@elmorabbi.com",
-        role: "sheikh",
-        avatar: "https://images.unsplash.com/photo-1544717305-2782549b5136?w=150&auto=format&fit=crop&q=80",
-        phone: "+20110 123 4567",
-        title: "مقرئ القراءات العشر ومجاز في الحديث النبوي الشريف",
-        bio: "إمام ومدرس للقرآن الكريم والعلوم الشرعية، أهدف لمساعدة الطلاب على الاستقامة وبناء الورد اليومي ومحاسبة النفس وفق منهج تربوي أصيل.",
-        halaqahName: "حلقة الهدى والنور لتزكية النفوس",
-        status: "active",
-      },
-    ];
+    return rows.map((r) => ({
+      ...r,
+      role: "sheikh" as const,
+      avatar: r.avatar ?? undefined,
+      phone: r.phone ?? undefined,
+      title: r.title ?? SHEIKH_DEFAULTS.title,
+      bio: r.bio ?? "",
+      halaqahName: r.halaqahName ?? SHEIKH_DEFAULTS.halaqahName,
+      status: "active" as const,
+    }));
   },
 
   getPendingSheikhs: async (): Promise<UserRecord[]> => {
-    if (db) {
-      try {
-        const rows = await db
-          .select({
-            id: schema.users.id,
-            name: schema.users.name,
-            email: schema.users.email,
-            role: schema.users.role,
-            avatar: schema.users.avatar,
-            phone: schema.users.phone,
-            createdAt: schema.users.createdAt,
-            title: schema.sheikhProfiles.title,
-            bio: schema.sheikhProfiles.bio,
-            halaqahName: schema.sheikhProfiles.halaqahName,
-            status: schema.sheikhProfiles.status,
-          })
-          .from(schema.users)
-          .innerJoin(
-            schema.sheikhProfiles,
-            eq(schema.users.id, schema.sheikhProfiles.userId)
-          )
-          .where(
-            and(
-              eq(schema.users.role, "sheikh"),
-              eq(schema.sheikhProfiles.status, "pending_approval")
-            )
-          )
-          .orderBy(desc(schema.users.createdAt));
+    const rows = await getDb()
+      .select({
+        id: schema.users.id,
+        name: schema.users.name,
+        email: schema.users.email,
+        avatar: schema.users.avatar,
+        phone: schema.users.phone,
+        createdAt: schema.users.createdAt,
+        title: schema.sheikhProfiles.title,
+        bio: schema.sheikhProfiles.bio,
+        halaqahName: schema.sheikhProfiles.halaqahName,
+      })
+      .from(schema.users)
+      .innerJoin(schema.sheikhProfiles, eq(schema.users.id, schema.sheikhProfiles.userId))
+      .where(and(eq(schema.users.role, "sheikh"), eq(schema.sheikhProfiles.status, "pending_approval")))
+      .orderBy(desc(schema.users.createdAt));
 
-        return rows.map((r) => ({
-          ...r,
-          role: "sheikh" as const,
-          avatar: r.avatar ?? undefined,
-          phone: r.phone ?? undefined,
-          title: r.title ?? "مقرئ ومدرس شرعي",
-          bio: r.bio ?? "",
-          halaqahName: r.halaqahName ?? "حلقة المربي",
-          status: "pending_approval" as const,
-          createdAt: r.createdAt
-            ? new Date(r.createdAt).toLocaleDateString("ar-EG", {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              })
-            : undefined,
-        }));
-      } catch (err) {
-        console.warn("Neon query error in getPendingSheikhs:", err);
-      }
-    }
-    return [];
+    return rows.map((r) => ({
+      ...r,
+      role: "sheikh" as const,
+      avatar: r.avatar ?? undefined,
+      phone: r.phone ?? undefined,
+      title: r.title ?? SHEIKH_DEFAULTS.title,
+      bio: r.bio ?? "",
+      halaqahName: r.halaqahName ?? SHEIKH_DEFAULTS.halaqahName,
+      status: "pending_approval" as const,
+      createdAt: formatTimestamp(r.createdAt, { day: "numeric", month: "short", year: "numeric" }),
+    }));
   },
 
   approveSheikh: async (sheikhId: string): Promise<void> => {
-    if (db) {
-      try {
-        await db
-          .update(schema.sheikhProfiles)
-          .set({
-            status: "active",
-            isAcceptingStudents: true,
-          })
-          .where(eq(schema.sheikhProfiles.userId, sheikhId));
-      } catch (err) {
-        console.warn("Neon query error in approveSheikh:", err);
-      }
-    }
+    await getDb()
+      .update(schema.sheikhProfiles)
+      .set({ status: "active", isAcceptingStudents: true })
+      .where(eq(schema.sheikhProfiles.userId, sheikhId));
   },
 
   rejectSheikh: async (sheikhId: string): Promise<void> => {
-    if (db) {
-      try {
-        await db
-          .update(schema.sheikhProfiles)
-          .set({
-            status: "rejected",
-            isAcceptingStudents: false,
-          })
-          .where(eq(schema.sheikhProfiles.userId, sheikhId));
-      } catch (err) {
-        console.warn("Neon query error in rejectSheikh:", err);
-      }
-    }
+    await getDb()
+      .update(schema.sheikhProfiles)
+      .set({ status: "rejected", isAcceptingStudents: false })
+      .where(eq(schema.sheikhProfiles.userId, sheikhId));
   },
 
   getUserById: async (id: string): Promise<UserRecord | undefined> => {
-    if (db) {
-      try {
-        const [u] = await db
-          .select()
-          .from(schema.users)
-          .where(eq(schema.users.id, id));
+    const db = getDb();
+    const [u] = await db.select().from(schema.users).where(eq(schema.users.id, id));
+    if (!u) return undefined;
 
-        if (u) {
-          let extra: { title?: string; bio?: string; halaqahName?: string } = {};
-          if (u.role === "sheikh") {
-            const [sp] = await db
-              .select()
-              .from(schema.sheikhProfiles)
-              .where(eq(schema.sheikhProfiles.userId, u.id));
-            if (sp) {
-              extra = {
-                title: sp.title,
-                bio: sp.bio ?? undefined,
-                halaqahName: sp.halaqahName,
-              };
-            }
-          }
-          return {
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            role: u.role,
-            avatar: u.avatar ?? undefined,
-            phone: u.phone ?? undefined,
-            ...extra,
-          };
-        }
-      } catch (err) {
-        console.warn("Neon query error:", err);
+    let extra: Pick<UserRecord, "title" | "bio" | "halaqahName"> = {};
+    if (u.role === "sheikh") {
+      const [sp] = await db
+        .select()
+        .from(schema.sheikhProfiles)
+        .where(eq(schema.sheikhProfiles.userId, u.id));
+      if (sp) {
+        extra = { title: sp.title, bio: sp.bio ?? undefined, halaqahName: sp.halaqahName };
       }
     }
-
-    // Default mock lookup
-    if (id === "sheikh-mahmoud") {
-      return {
-        id: "sheikh-mahmoud",
-        name: "الشيخ محمود عبد الحليم",
-        email: "sheikh@elmorabbi.com",
-        role: "sheikh",
-        title: "مقرئ القراءات العشر ومجاز في الحديث النبوي الشريف",
-        halaqahName: "حلقة الهدى والنور لتزكية النفوس",
-      };
-    }
     return {
-      id: "student-ahmed",
-      name: "أحمد بن عبد الرحمن",
-      email: "ahmed@student.com",
-      role: "student",
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      role: u.role,
+      avatar: u.avatar ?? undefined,
+      phone: u.phone ?? undefined,
+      ...extra,
     };
   },
 
   getUserByEmail: async (email: string): Promise<UserRecord | undefined> => {
-    if (db) {
-      try {
-        const [u] = await db
-          .select()
-          .from(schema.users)
-          .where(eq(schema.users.email, email.toLowerCase()));
-        if (u) {
-          let extra: { title?: string; bio?: string; halaqahName?: string; status?: "active" | "pending_approval" | "rejected" } = {};
-          if (u.role === "sheikh") {
-            const [sp] = await db
-              .select()
-              .from(schema.sheikhProfiles)
-              .where(eq(schema.sheikhProfiles.userId, u.id));
-            if (sp) {
-              extra = {
-                title: sp.title,
-                bio: sp.bio ?? undefined,
-                halaqahName: sp.halaqahName,
-                status: (sp.status as any) || "active",
-              };
-            } else {
-              extra = { status: "active" };
-            }
-          } else if (u.role === "student") {
-            extra = { status: "active" };
-          }
-          return {
-            id: u.id,
-            name: u.name,
-            email: u.email,
-            password: u.password,
-            role: u.role,
-            avatar: u.avatar ?? undefined,
-            phone: u.phone ?? undefined,
-            ...extra,
-          };
-        }
-      } catch (err) {
-        console.warn("Neon query error:", err);
+    const db = getDb();
+    const [u] = await db.select().from(schema.users).where(eq(schema.users.email, email.toLowerCase()));
+    if (!u) return undefined;
+
+    let extra: Pick<UserRecord, "title" | "bio" | "halaqahName" | "status"> = { status: "active" };
+    if (u.role === "sheikh") {
+      const [sp] = await db
+        .select()
+        .from(schema.sheikhProfiles)
+        .where(eq(schema.sheikhProfiles.userId, u.id));
+      if (sp) {
+        extra = {
+          title: sp.title,
+          bio: sp.bio ?? undefined,
+          halaqahName: sp.halaqahName,
+          status: sp.status,
+        };
       }
     }
+    return {
+      id: u.id,
+      name: u.name,
+      email: u.email,
+      password: u.password,
+      role: u.role,
+      avatar: u.avatar ?? undefined,
+      phone: u.phone ?? undefined,
+      ...extra,
+    };
+  },
 
-    // No mock fallback here: authentication must only ever succeed against real records
-    return undefined;
+  // Current role and (for sheikhs) approval status, used to validate sessions on every request
+  getAccountState: async (
+    userId: string
+  ): Promise<{ role: UserRecord["role"]; sheikhStatus: string | null } | undefined> => {
+    const [row] = await getDb()
+      .select({ role: schema.users.role, sheikhStatus: schema.sheikhProfiles.status })
+      .from(schema.users)
+      .leftJoin(schema.sheikhProfiles, eq(schema.users.id, schema.sheikhProfiles.userId))
+      .where(eq(schema.users.id, userId));
+    return row;
   },
 
   createUser: async (user: UserRecord): Promise<UserRecord> => {
-    if (db) {
-      try {
-        await db.insert(schema.users).values({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          password: user.password ?? "",
-          role: user.role,
-          phone: user.phone,
-        });
+    const db = getDb();
+    await assertEmailAvailable(user.email);
+    await db.insert(schema.users).values({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      password: user.password ?? "",
+      role: user.role,
+      phone: user.phone,
+    });
 
-        if (user.role === "student") {
-          await db.insert(schema.studentProfiles).values({
-            id: `sp-${user.id}`,
-            userId: user.id,
-            streakDays: 0,
-            level: "طالب جديد",
-            status: "active",
-          });
-        } else if (user.role === "sheikh") {
-          await db.insert(schema.sheikhProfiles).values({
-            id: `shp-${user.id}`,
-            userId: user.id,
-            title: user.title || "مقرئ ومدرس شرعي",
-            bio: user.bio || "",
-            isAcceptingStudents: false,
-            halaqahName: user.halaqahName || `حلقة الشيخ ${user.name}`,
-            status: "pending_approval",
-          });
-        }
-      } catch (err) {
-        console.warn("Failed to insert user to Neon:", err);
-      }
+    if (user.role === "student") {
+      await db.insert(schema.studentProfiles).values({
+        id: `sp-${user.id}`,
+        userId: user.id,
+        level: "طالب جديد",
+        status: "active",
+      });
+    } else if (user.role === "sheikh") {
+      await db.insert(schema.sheikhProfiles).values({
+        id: `shp-${user.id}`,
+        userId: user.id,
+        title: user.title || SHEIKH_DEFAULTS.title,
+        bio: user.bio || "",
+        isAcceptingStudents: false,
+        halaqahName: user.halaqahName || `حلقة الشيخ ${user.name}`,
+        status: "pending_approval",
+      });
     }
     return user;
   },
 
   // Student Profile & Sheikh Assignment
   getStudentProfile: async (studentId: string): Promise<StudentProfileRecord | undefined> => {
-    if (db) {
-      try {
-        const [p] = await db
-          .select()
-          .from(schema.studentProfiles)
-          .where(eq(schema.studentProfiles.userId, studentId));
+    const [p] = await getDb()
+      .select()
+      .from(schema.studentProfiles)
+      .where(eq(schema.studentProfiles.userId, studentId));
+    if (!p) return undefined;
 
-        if (p) return p;
-      } catch (err) {
-        console.warn("Neon query error:", err);
-      }
-    }
-
-    return {
-      id: `sp-${studentId}`,
-      userId: studentId,
-      sheikhId: "sheikh-mahmoud",
-      streakDays: 14,
-      level: "طالب مواظب (المستوى الثاني)",
-      status: "active",
-    };
+    const streaks = await getStreaks([studentId]);
+    return { ...p, streakDays: streaks.get(studentId) ?? 0 };
   },
 
-  // Ownership check used for authorization: never falls back to mock data
+  // Ownership check used for authorization
   isStudentOfSheikh: async (studentId: string, sheikhId: string): Promise<boolean> => {
-    if (!db) return false;
-    try {
-      const [p] = await db
-        .select({ sheikhId: schema.studentProfiles.sheikhId })
-        .from(schema.studentProfiles)
-        .where(eq(schema.studentProfiles.userId, studentId));
-      return Boolean(p && p.sheikhId === sheikhId);
-    } catch (err) {
-      console.warn("Neon query error in isStudentOfSheikh:", err);
-      return false;
-    }
+    const [p] = await getDb()
+      .select({ sheikhId: schema.studentProfiles.sheikhId })
+      .from(schema.studentProfiles)
+      .where(eq(schema.studentProfiles.userId, studentId));
+    return Boolean(p && p.sheikhId === sheikhId);
   },
 
   assignSheikhToStudent: async (studentId: string, sheikhId: string): Promise<void> => {
-    if (db) {
-      try {
-        await db
-          .insert(schema.studentProfiles)
-          .values({
-            id: `sp-${studentId}`,
-            userId: studentId,
-            sheikhId,
-            streakDays: 0,
-            level: "طالب جديد",
-            status: "active",
-          })
-          .onConflictDoUpdate({
-            target: schema.studentProfiles.userId,
-            set: { sheikhId },
-          });
-      } catch (err) {
-        console.warn("Neon query error:", err);
-      }
-    }
+    await getDb()
+      .insert(schema.studentProfiles)
+      .values({
+        id: `sp-${studentId}`,
+        userId: studentId,
+        sheikhId,
+        level: "طالب جديد",
+        status: "active",
+      })
+      .onConflictDoUpdate({
+        target: schema.studentProfiles.userId,
+        set: { sheikhId },
+      });
   },
 
   getStudentsForSheikh: async (sheikhId: string) => {
-    if (db) {
-      const client = db;
-      try {
-        const profiles = await client
-          .select()
-          .from(schema.studentProfiles)
-          .where(eq(schema.studentProfiles.sheikhId, sheikhId));
+    const db = getDb();
+    const students = await db
+      .select({ user: schema.users, profile: schema.studentProfiles })
+      .from(schema.studentProfiles)
+      .innerJoin(schema.users, eq(schema.users.id, schema.studentProfiles.userId))
+      .where(eq(schema.studentProfiles.sheikhId, sheikhId));
 
-        const todayDate = getTodayDateString();
+    if (students.length === 0) return [];
 
-        const studentsWithLogs = await Promise.all(
-          profiles.map(async (p) => {
-            const [user] = await client
-              .select()
-              .from(schema.users)
-              .where(eq(schema.users.id, p.userId));
+    const ids = students.map((s) => s.user.id);
+    const today = todayDateString();
+    const [todayLogs, streaks] = await Promise.all([
+      db
+        .select()
+        .from(schema.dailyLogs)
+        .where(and(inArray(schema.dailyLogs.studentId, ids), eq(schema.dailyLogs.date, today))),
+      getStreaks(ids),
+    ]);
+    const logByStudent = new Map(todayLogs.map((l) => [l.studentId, toLogRecord(l)]));
 
-            const [todayLog] = await client
-              .select()
-              .from(schema.dailyLogs)
-              .where(
-                and(
-                  eq(schema.dailyLogs.studentId, p.userId),
-                  eq(schema.dailyLogs.date, todayDate)
-                )
-              );
-
-            let completedDeeds = 0;
-            if (todayLog) {
-              if (todayLog.fajr === "congregation" || todayLog.fajr === "ontime") completedDeeds++;
-              if (todayLog.dhuhr === "congregation" || todayLog.dhuhr === "ontime") completedDeeds++;
-              if (todayLog.asr === "congregation" || todayLog.asr === "ontime") completedDeeds++;
-              if (todayLog.maghrib === "congregation" || todayLog.maghrib === "ontime") completedDeeds++;
-              if (todayLog.isha === "congregation" || todayLog.isha === "ontime") completedDeeds++;
-              if (todayLog.quranRead) completedDeeds++;
-              if (todayLog.adhkarMorning) completedDeeds++;
-              if (todayLog.adhkarEvening) completedDeeds++;
-            }
-
-            const completionRate = Math.round((completedDeeds / 8) * 100);
-
-            return {
-              id: user?.id || p.userId,
-              name: user?.name || "طالب",
-              email: user?.email || "",
-              avatar: user?.avatar ?? undefined,
-              phone: user?.phone ?? undefined,
-              profile: p,
-              todayLog: todayLog ? { ...todayLog, notes: todayLog.notes ?? undefined } : undefined,
-              completedDeeds,
-              completionRate,
-            };
-          })
-        );
-
-        if (studentsWithLogs.length > 0) {
-          return studentsWithLogs;
-        }
-      } catch (err) {
-        console.warn("Neon query error:", err);
-      }
-    }
-
-    // Default mock fallback
-    return [
-      {
-        id: "student-ahmed",
-        name: "أحمد بن عبد الرحمن",
-        email: "ahmed@student.com",
-        profile: {
-          id: "sp-ahmed",
-          userId: "student-ahmed",
-          sheikhId,
-          streakDays: 14,
-          level: "طالب مواظب (المستوى الثاني)",
-          status: "active" as const,
-        },
-        todayLog: {
-          id: "log-ahmed",
-          studentId: "student-ahmed",
-          date: getTodayDateString(),
-          fajr: "congregation" as const,
-          dhuhr: "congregation" as const,
-          asr: "ontime" as const,
-          maghrib: "congregation" as const,
-          isha: "ontime" as const,
-          quranRead: true,
-          quranPages: 10,
-          adhkarMorning: true,
-          adhkarEvening: true,
-          fasting: "voluntary" as const,
-          notes: "الحمد لله استيقظت مبكراً ووفقت لصلاة الفجر في جماعة المسجد.",
-        },
-        completedDeeds: 8,
-        completionRate: 100,
-      },
-      {
-        id: "student-omar",
-        name: "عمر الفاروق الدوسري",
-        email: "omar@student.com",
-        profile: {
-          id: "sp-omar",
-          userId: "student-omar",
-          sheikhId,
-          streakDays: 3,
-          level: "مبتدئ يحتاج متابعة",
-          status: "active" as const,
-        },
-        todayLog: {
-          id: "log-omar",
-          studentId: "student-omar",
-          date: getTodayDateString(),
-          fajr: "late" as const,
-          dhuhr: "ontime" as const,
-          asr: "ontime" as const,
-          maghrib: "missed" as const,
-          isha: "missed" as const,
-          quranRead: false,
-          quranPages: 0,
-          adhkarMorning: true,
-          adhkarEvening: false,
-          fasting: "none" as const,
-          notes: "انشغلت بالدراسة اليوم.",
-        },
-        completedDeeds: 3,
-        completionRate: 38,
-      },
-    ];
+    return students.map(({ user, profile }) => {
+      const todayLog = logByStudent.get(user.id);
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        avatar: user.avatar ?? undefined,
+        phone: user.phone ?? undefined,
+        profile: { ...profile, streakDays: streaks.get(user.id) ?? 0 } as StudentProfileRecord,
+        todayLog,
+        completedDeeds: countCompletedDeeds(todayLog),
+        completionRate: completionRate(todayLog),
+      };
+    });
   },
 
   // Daily Logs
+  // A day with nothing recorded yet is an empty log, never pre-filled data
   getTodayLog: async (studentId: string): Promise<DailyLogRecord> => {
-    const today = getTodayDateString();
-    if (db) {
-      try {
-        const [log] = await db
-          .select()
-          .from(schema.dailyLogs)
-          .where(
-            and(
-              eq(schema.dailyLogs.studentId, studentId),
-              eq(schema.dailyLogs.date, today)
-            )
-          );
-
-        if (log) {
-          return {
-            ...log,
-            notes: log.notes ?? undefined,
-          };
-        }
-      } catch (err) {
-        console.warn("Neon query error:", err);
-      }
-    }
-
-    return {
-      id: `log-${studentId}-${today}`,
-      studentId,
-      date: today,
-      fajr: "congregation",
-      dhuhr: "congregation",
-      asr: "ontime",
-      maghrib: "congregation",
-      isha: "ontime",
-      quranRead: true,
-      quranPages: 10,
-      adhkarMorning: true,
-      adhkarEvening: true,
-      fasting: "voluntary",
-      notes: "الحمد لله استيقظت مبكراً ووفقت لصلاة الفجر في جماعة المسجد.",
-    };
+    const today = todayDateString();
+    const [log] = await getDb()
+      .select()
+      .from(schema.dailyLogs)
+      .where(and(eq(schema.dailyLogs.studentId, studentId), eq(schema.dailyLogs.date, today)));
+    return log ? toLogRecord(log) : emptyDailyLog(studentId, today);
   },
 
   updateDailyLog: async (
     log: Partial<DailyLogRecord> & { studentId: string; date: string }
   ): Promise<void> => {
-    if (db) {
-      try {
-        const existing = await db
-          .select()
-          .from(schema.dailyLogs)
-          .where(
-            and(
-              eq(schema.dailyLogs.studentId, log.studentId),
-              eq(schema.dailyLogs.date, log.date)
-            )
-          );
-
-        if (existing.length > 0) {
-          await db
-            .update(schema.dailyLogs)
-            .set(log)
-            .where(
-              and(
-                eq(schema.dailyLogs.studentId, log.studentId),
-                eq(schema.dailyLogs.date, log.date)
-              )
-            );
-        } else {
-          await db.insert(schema.dailyLogs).values({
-            id: `log-${log.studentId}-${log.date}`,
-            studentId: log.studentId,
-            date: log.date,
-            fajr: log.fajr || "missed",
-            dhuhr: log.dhuhr || "missed",
-            asr: log.asr || "missed",
-            maghrib: log.maghrib || "missed",
-            isha: log.isha || "missed",
-            quranRead: log.quranRead ?? false,
-            quranPages: log.quranPages || 0,
-            adhkarMorning: log.adhkarMorning ?? false,
-            adhkarEvening: log.adhkarEvening ?? false,
-            fasting: log.fasting || "none",
-            notes: log.notes || "",
-          });
-        }
-      } catch (err) {
-        console.warn("Failed to update daily log on Neon:", err);
-      }
-    }
+    const { studentId, date, ...changes } = log;
+    delete changes.id;
+    // Atomic upsert on (student_id, date)
+    await getDb()
+      .insert(schema.dailyLogs)
+      .values({ ...emptyDailyLog(studentId, date), ...changes, notes: changes.notes ?? null })
+      .onConflictDoUpdate({
+        target: [schema.dailyLogs.studentId, schema.dailyLogs.date],
+        set: { ...changes, updatedAt: new Date() },
+      });
   },
 
-  getStudentHistory: async (studentId: string, limitDays: number = 7): Promise<DailyLogRecord[]> => {
-    let existingRows: DailyLogRecord[] = [];
-    if (db) {
-      try {
-        const rows = await db
-          .select()
-          .from(schema.dailyLogs)
-          .where(eq(schema.dailyLogs.studentId, studentId))
-          .orderBy(desc(schema.dailyLogs.date))
-          .limit(limitDays);
+  // Last `days` calendar days ending today; days without a record are empty logs
+  getStudentHistory: async (studentId: string, days: number = 7): Promise<DailyLogRecord[]> => {
+    const today = todayDateString();
+    const from = addDays(today, -(days - 1));
+    const rows = await getDb()
+      .select()
+      .from(schema.dailyLogs)
+      .where(and(eq(schema.dailyLogs.studentId, studentId), gte(schema.dailyLogs.date, from)));
+    const byDate = new Map(rows.map((r) => [r.date, toLogRecord(r)]));
 
-        if (rows.length > 0) {
-          existingRows = rows.map((r) => ({
-            ...r,
-            notes: r.notes ?? undefined,
-          }));
-        }
-      } catch (err) {
-        console.warn("Neon query error:", err);
-      }
-    }
-
-    // If we have existing rows matching limitDays, return them sorted by date ascending
-    if (existingRows.length >= limitDays) {
-      return existingRows.sort((a, b) => a.date.localeCompare(b.date));
-    }
-
-    // Otherwise, generate realistic 7-day logs backfilled with existing rows
-    const result: DailyLogRecord[] = [];
-    const now = new Date();
-    const mapExisting = new Map(existingRows.map((r) => [r.date, r]));
-
-    for (let i = limitDays - 1; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split("T")[0];
-
-      if (mapExisting.has(dateStr)) {
-        result.push(mapExisting.get(dateStr)!);
-      } else {
-        // Realistic variation for past days
-        const isFajrCong = i % 2 === 0 || i === 1;
-        result.push({
-          id: `hist-${studentId}-${dateStr}`,
-          studentId,
-          date: dateStr,
-          fajr: isFajrCong ? "congregation" : "ontime",
-          dhuhr: "congregation",
-          asr: i === 3 ? "late" : "ontime",
-          maghrib: "congregation",
-          isha: "ontime",
-          quranRead: i !== 4,
-          quranPages: i !== 4 ? 6 + (i * 2) : 0,
-          adhkarMorning: true,
-          adhkarEvening: i % 2 === 0,
-          fasting: (d.getDay() === 1 || d.getDay() === 4) ? "voluntary" : "none", // Monday / Thursday
-          notes: i === 0 ? "يوم مبارك بحمد الله" : undefined,
-        });
-      }
-    }
-
-    return result;
+    return Array.from({ length: days }, (_, i) => {
+      const date = addDays(from, i);
+      return byDate.get(date) ?? emptyDailyLog(studentId, date);
+    });
   },
 
-  // Feedback Messages
+  // Feedback Messages (guidance from sheikh to student)
   getFeedbackForStudent: async (studentId: string): Promise<FeedbackRecord[]> => {
-    if (db) {
-      try {
-        const rows = await db
-          .select({
-            id: schema.feedbackMessages.id,
-            sheikhId: schema.feedbackMessages.sheikhId,
-            studentId: schema.feedbackMessages.studentId,
-            sheikhName: schema.users.name,
-            content: schema.feedbackMessages.content,
-            type: schema.feedbackMessages.type,
-            isRead: schema.feedbackMessages.isRead,
-            createdAt: schema.feedbackMessages.createdAt,
-          })
-          .from(schema.feedbackMessages)
-          .leftJoin(
-            schema.users,
-            eq(schema.feedbackMessages.sheikhId, schema.users.id)
-          )
-          .where(eq(schema.feedbackMessages.studentId, studentId))
-          .orderBy(desc(schema.feedbackMessages.createdAt));
+    const rows = await getDb()
+      .select({
+        id: schema.feedbackMessages.id,
+        sheikhId: schema.feedbackMessages.sheikhId,
+        studentId: schema.feedbackMessages.studentId,
+        sheikhName: schema.users.name,
+        content: schema.feedbackMessages.content,
+        type: schema.feedbackMessages.type,
+        isRead: schema.feedbackMessages.isRead,
+        createdAt: schema.feedbackMessages.createdAt,
+      })
+      .from(schema.feedbackMessages)
+      .leftJoin(schema.users, eq(schema.feedbackMessages.sheikhId, schema.users.id))
+      .where(
+        and(eq(schema.feedbackMessages.studentId, studentId), eq(schema.feedbackMessages.kind, "guidance"))
+      )
+      .orderBy(desc(schema.feedbackMessages.createdAt));
 
-        if (rows.length > 0) {
-          // Filter out student inquiries so the feed only displays actual guidance/advice sent by the sheikh
-          const guidanceRows = rows.filter((r) => !r.content.startsWith("[استفسار طالب"));
-
-          return guidanceRows.map((r) => ({
-            id: r.id,
-            sheikhId: r.sheikhId,
-            studentId: r.studentId,
-            sheikhName: r.sheikhName || "الشيخ المشرف",
-            content: r.content,
-            type: r.type,
-            isRead: r.isRead,
-            createdAt: new Date(r.createdAt).toLocaleDateString("ar-EG", {
-              day: "numeric",
-              month: "short",
-            }),
-          }));
-        }
-      } catch (err) {
-        console.warn("Neon query error:", err);
-      }
-    }
-
-    return [
-      {
-        id: "fb-1",
-        sheikhId: "sheikh-mahmoud",
-        studentId,
-        sheikhName: "الشيخ محمود عبد الحليم",
-        content: "ما شاء الله يا بني، مواظبتك على صلاة الفجر في جماعة لليوم الرابع عشر تثلج الصدر. حافظ على ورد تدبر القرآن ولا تعجل في القراءة.",
-        type: "praise",
-        isRead: false,
-        createdAt: "اليوم",
-      },
-    ];
+    return rows.map((r) => ({
+      ...r,
+      sheikhName: r.sheikhName || "الشيخ المشرف",
+      createdAt: formatTimestamp(r.createdAt, { day: "numeric", month: "short" }),
+    }));
   },
 
-  sendFeedback: async (feedback: Omit<FeedbackRecord, "id" | "createdAt" | "isRead">): Promise<FeedbackRecord> => {
-    const id = `fb-${Date.now()}`;
-    if (db) {
-      try {
-        await db.insert(schema.feedbackMessages).values({
-          id,
-          sheikhId: feedback.sheikhId,
-          studentId: feedback.studentId,
-          content: feedback.content,
-          type: feedback.type,
-          isRead: false,
-        });
-      } catch (err) {
-        console.warn("Failed to insert feedback to Neon:", err);
-      }
-    }
+  sendFeedback: async (feedback: Omit<FeedbackRecord, "id" | "createdAt" | "isRead">): Promise<void> => {
+    await getDb().insert(schema.feedbackMessages).values({
+      id: `fb-${crypto.randomUUID()}`,
+      sheikhId: feedback.sheikhId,
+      studentId: feedback.studentId,
+      content: feedback.content,
+      type: feedback.type,
+      kind: "guidance",
+    });
+  },
 
-    return {
-      id,
-      ...feedback,
-      isRead: false,
-      createdAt: "الآن",
-    };
+  sendStudentQuestion: async (question: {
+    studentId: string;
+    sheikhId: string;
+    content: string;
+    category: string;
+  }): Promise<void> => {
+    await getDb().insert(schema.feedbackMessages).values({
+      id: `q-${crypto.randomUUID()}`,
+      sheikhId: question.sheikhId,
+      studentId: question.studentId,
+      content: question.content,
+      category: question.category,
+      type: "advice",
+      kind: "question",
+    });
   },
 
   getStudentInquiriesForSheikh: async (sheikhId: string) => {
-    if (db) {
-      try {
-        const rows = await db
-          .select({
-            id: schema.feedbackMessages.id,
-            sheikhId: schema.feedbackMessages.sheikhId,
-            studentId: schema.feedbackMessages.studentId,
-            studentName: schema.users.name,
-            content: schema.feedbackMessages.content,
-            type: schema.feedbackMessages.type,
-            isRead: schema.feedbackMessages.isRead,
-            createdAt: schema.feedbackMessages.createdAt,
-          })
-          .from(schema.feedbackMessages)
-          .leftJoin(
-            schema.users,
-            eq(schema.feedbackMessages.studentId, schema.users.id)
-          )
-          .where(eq(schema.feedbackMessages.sheikhId, sheikhId))
-          .orderBy(desc(schema.feedbackMessages.createdAt));
+    const rows = await getDb()
+      .select({
+        id: schema.feedbackMessages.id,
+        sheikhId: schema.feedbackMessages.sheikhId,
+        studentId: schema.feedbackMessages.studentId,
+        studentName: schema.users.name,
+        content: schema.feedbackMessages.content,
+        category: schema.feedbackMessages.category,
+        type: schema.feedbackMessages.type,
+        isRead: schema.feedbackMessages.isRead,
+        createdAt: schema.feedbackMessages.createdAt,
+      })
+      .from(schema.feedbackMessages)
+      .leftJoin(schema.users, eq(schema.feedbackMessages.studentId, schema.users.id))
+      .where(
+        and(eq(schema.feedbackMessages.sheikhId, sheikhId), eq(schema.feedbackMessages.kind, "question"))
+      )
+      .orderBy(desc(schema.feedbackMessages.createdAt));
 
-        if (rows.length > 0) {
-          // Filter to only messages that are inquiries/questions from students to the sheikh
-          const inquiryRows = rows.filter(
-            (r) =>
-              r.content.startsWith("[استفسار طالب") ||
-              r.content.includes("استفسار")
-          );
-
-          return inquiryRows.map((r) => ({
-            id: r.id,
-            sheikhId: r.sheikhId,
-            studentId: r.studentId,
-            studentName: r.studentName || "طالب حلقة",
-            content: r.content,
-            type: r.type,
-            isRead: r.isRead,
-            createdAt: new Date(r.createdAt).toLocaleDateString("ar-EG", {
-              day: "numeric",
-              month: "short",
-              hour: "2-digit",
-              minute: "2-digit",
-            }),
-          }));
-        }
-      } catch (err) {
-        console.warn("Neon query error in getStudentInquiriesForSheikh:", err);
-      }
-    }
-
-    return [
-      {
-        id: "inq-1",
-        sheikhId,
-        studentId: "student-ahmed",
-        studentName: "أحمد بن عبد الرحمن",
-        content: "[استفسار طالب - تثبيت ورد القرآن]: فضيلة الشيخ، كيف أثبت ورد الحفظ والمراجعة مع كثرة الانشغال بالعمل والدراسة؟ جزاكم الله خيراً.",
-        type: "advice" as const,
-        isRead: false,
-        createdAt: "اليوم 09:30 ص",
-      },
-    ];
+    return rows.map((r) => ({
+      ...r,
+      studentName: r.studentName || "طالب حلقة",
+      category: r.category ?? undefined,
+      createdAt: formatTimestamp(r.createdAt, {
+        day: "numeric",
+        month: "short",
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    }));
   },
 
   // Admin & Security Management
-  updateUserPassword: async (userId: string, passwordHash: string): Promise<boolean> => {
-    if (db) {
-      try {
-        await db
-          .update(schema.users)
-          .set({ password: passwordHash })
-          .where(eq(schema.users.id, userId));
-        return true;
-      } catch (err) {
-        console.warn("Failed to update password in Neon:", err);
-      }
-    }
-    return false;
+  updateUserPassword: async (userId: string, passwordHash: string): Promise<void> => {
+    await getDb().update(schema.users).set({ password: passwordHash }).where(eq(schema.users.id, userId));
   },
 
   createNewSheikh: async (data: {
@@ -874,268 +531,132 @@ export const dataService = {
     title: string;
     halaqahName: string;
     bio?: string;
-  }): Promise<UserRecord> => {
+  }): Promise<void> => {
+    const db = getDb();
+    await assertEmailAvailable(data.email);
     const id = `sheikh-${crypto.randomUUID()}`;
 
-    if (db) {
-      try {
-        await db.insert(schema.users).values({
-          id,
-          name: data.name,
-          email: data.email,
-          password: data.passwordHash,
-          role: "sheikh",
-          avatar: "https://images.unsplash.com/photo-1544717305-2782549b5136?w=150&auto=format&fit=crop&q=80",
-        });
-
-        await db.insert(schema.sheikhProfiles).values({
-          id: `shp-${id}`,
-          userId: id,
-          title: data.title,
-          bio: data.bio || "",
-          halaqahName: data.halaqahName,
-          isAcceptingStudents: true,
-          status: "active",
-        });
-      } catch (err) {
-        console.warn("Failed to create sheikh in Neon:", err);
-      }
-    }
-
-    return {
+    await db.insert(schema.users).values({
       id,
       name: data.name,
       email: data.email,
+      password: data.passwordHash,
       role: "sheikh",
+    });
+
+    await db.insert(schema.sheikhProfiles).values({
+      id: `shp-${id}`,
+      userId: id,
       title: data.title,
+      bio: data.bio || "",
       halaqahName: data.halaqahName,
-      bio: data.bio,
-    };
+      isAcceptingStudents: true,
+      status: "active",
+    });
   },
 
   // Operational KPIs for Admin
   getOperationalKPIs: async () => {
-    let activeSheikhs = 2;
-    let totalStudents = 3;
-    let todayLoggedDeeds = 18;
-    let avgStreak = 11;
+    const db = getDb();
+    const today = todayDateString();
+    const [[sheikhCount], students, todayLogs] = await Promise.all([
+      db
+        .select({ value: count() })
+        .from(schema.sheikhProfiles)
+        .where(eq(schema.sheikhProfiles.status, "active")),
+      db.select({ id: schema.users.id }).from(schema.users).where(eq(schema.users.role, "student")),
+      db.select().from(schema.dailyLogs).where(eq(schema.dailyLogs.date, today)),
+    ]);
 
-    if (db) {
-      try {
-        const usersList = await db.select().from(schema.users);
-        activeSheikhs = usersList.filter((u) => u.role === "sheikh").length;
-        totalStudents = usersList.filter((u) => u.role === "student").length;
-
-        const profiles = await db.select().from(schema.studentProfiles);
-        if (profiles.length > 0) {
-          const totalStreak = profiles.reduce((acc, p) => acc + (p.streakDays || 0), 0);
-          avgStreak = Math.round(totalStreak / profiles.length);
-        }
-
-        const today = getTodayDateString();
-        const todayLogs = await db
-          .select()
-          .from(schema.dailyLogs)
-          .where(eq(schema.dailyLogs.date, today));
-
-        let deeds = 0;
-        todayLogs.forEach((l) => {
-          if (l.fajr === "congregation" || l.fajr === "ontime") deeds++;
-          if (l.dhuhr === "congregation" || l.dhuhr === "ontime") deeds++;
-          if (l.asr === "congregation" || l.asr === "ontime") deeds++;
-          if (l.maghrib === "congregation" || l.maghrib === "ontime") deeds++;
-          if (l.isha === "congregation" || l.isha === "ontime") deeds++;
-          if (l.quranRead) deeds++;
-          if (l.adhkarMorning) deeds++;
-          if (l.adhkarEvening) deeds++;
-        });
-        if (todayLogs.length > 0) {
-          todayLoggedDeeds = deeds;
-        }
-      } catch (err) {
-        console.warn("Error calculating KPIs:", err);
-      }
-    }
+    const streaks = await getStreaks(students.map((s) => s.id));
+    const totalStreak = [...streaks.values()].reduce((acc, s) => acc + s, 0);
 
     return {
-      activeSheikhs,
-      totalStudents,
-      todayLoggedDeeds,
-      avgStreak,
+      activeSheikhs: sheikhCount?.value ?? 0,
+      totalStudents: students.length,
+      todayLoggedDeeds: todayLogs.reduce((acc, l) => acc + countCompletedDeeds(toLogRecord(l)), 0),
+      avgStreak: students.length > 0 ? Math.round(totalStreak / students.length) : 0,
     };
   },
 
   // Students Directory for Admin
   getAllStudentsWithDetails: async () => {
-    if (db) {
-      try {
-        const students = await db
-          .select({
-            id: schema.users.id,
-            name: schema.users.name,
-            email: schema.users.email,
-            phone: schema.users.phone,
-            streakDays: schema.studentProfiles.streakDays,
-            level: schema.studentProfiles.level,
-            status: schema.studentProfiles.status,
-            sheikhId: schema.studentProfiles.sheikhId,
-          })
-          .from(schema.users)
-          .innerJoin(
-            schema.studentProfiles,
-            eq(schema.users.id, schema.studentProfiles.userId)
-          )
-          .where(eq(schema.users.role, "student"));
+    const sheikhUsers = alias(schema.users, "sheikh_users");
+    const rows = await getDb()
+      .select({
+        id: schema.users.id,
+        name: schema.users.name,
+        email: schema.users.email,
+        phone: schema.users.phone,
+        level: schema.studentProfiles.level,
+        status: schema.studentProfiles.status,
+        sheikhId: schema.studentProfiles.sheikhId,
+        sheikhName: sheikhUsers.name,
+      })
+      .from(schema.users)
+      .innerJoin(schema.studentProfiles, eq(schema.users.id, schema.studentProfiles.userId))
+      .leftJoin(sheikhUsers, eq(sheikhUsers.id, schema.studentProfiles.sheikhId))
+      .where(eq(schema.users.role, "student"));
 
-        const sheikhs = await db.select().from(schema.users).where(eq(schema.users.role, "sheikh"));
-        const sheikhMap = new Map(sheikhs.map((s) => [s.id, s.name]));
-
-        return students.map((s) => ({
-          ...s,
-          sheikhName: s.sheikhId ? sheikhMap.get(s.sheikhId) || "غير محدد" : "غير منضم لحلقة",
-        }));
-      } catch (err) {
-        console.warn("Neon query error for students, using fallback:", err);
-      }
-    }
-
-    return [
-      {
-        id: "student-ahmed",
-        name: "أحمد بن عبد الرحمن",
-        email: "ahmed@student.com",
-        phone: "+20115 987 6543",
-        streakDays: 14,
-        level: "طالب مجتهد",
-        status: "active",
-        sheikhId: "sheikh-mahmoud",
-        sheikhName: "الشيخ محمود عبد الحليم",
-      },
-      {
-        id: "student-bilal",
-        name: "بلال بن مسعود",
-        email: "bilal@student.com",
-        phone: "+20110 111 2233",
-        streakDays: 8,
-        level: "طالب مبتدئ",
-        status: "active",
-        sheikhId: "sheikh-mahmoud",
-        sheikhName: "الشيخ محمود عبد الحليم",
-      },
-      {
-        id: "student-omar",
-        name: "عمر الفاروق الدوسري",
-        email: "omar@student.com",
-        phone: "+20114 333 4455",
-        streakDays: 21,
-        level: "متقدم (خاتم للورد)",
-        status: "active",
-        sheikhId: "sheikh-mahmoud",
-        sheikhName: "الشيخ محمود عبد الحليم",
-      },
-    ];
+    const streaks = await getStreaks(rows.map((r) => r.id));
+    return rows.map((r) => ({
+      ...r,
+      streakDays: streaks.get(r.id) ?? 0,
+      sheikhName: r.sheikhId ? r.sheikhName || "غير محدد" : "غير منضم لحلقة",
+    }));
   },
 
   // Update Sheikh Profile
   updateSheikhProfile: async (
     sheikhId: string,
     data: { name: string; email: string; title: string; halaqahName: string; bio?: string }
-  ): Promise<boolean> => {
-    if (db) {
-      try {
-        await db
-          .update(schema.users)
-          .set({
-            name: data.name,
-            email: data.email,
-          })
-          .where(eq(schema.users.id, sheikhId));
-
-        await db
-          .update(schema.sheikhProfiles)
-          .set({
-            title: data.title,
-            halaqahName: data.halaqahName,
-            bio: data.bio || "",
-          })
-          .where(eq(schema.sheikhProfiles.userId, sheikhId));
-
-        return true;
-      } catch (err) {
-        console.warn("Failed to update sheikh profile:", err);
-      }
-    }
-    return true;
+  ): Promise<void> => {
+    const db = getDb();
+    await assertEmailAvailable(data.email, sheikhId);
+    await db
+      .update(schema.users)
+      .set({ name: data.name, email: data.email })
+      .where(eq(schema.users.id, sheikhId));
+    await db
+      .update(schema.sheikhProfiles)
+      .set({ title: data.title, halaqahName: data.halaqahName, bio: data.bio || "" })
+      .where(eq(schema.sheikhProfiles.userId, sheikhId));
   },
 
   // Reassign student to a sheikh
-  reassignStudentSheikh: async (studentId: string, newSheikhId: string): Promise<boolean> => {
-    if (db) {
-      try {
-        await db
-          .update(schema.studentProfiles)
-          .set({
-            sheikhId: newSheikhId,
-          })
-          .where(eq(schema.studentProfiles.userId, studentId));
-        return true;
-      } catch (err) {
-        console.warn("Failed to reassign student:", err);
-      }
-    }
-    return true;
+  reassignStudentSheikh: async (studentId: string, newSheikhId: string): Promise<void> => {
+    await getDb()
+      .update(schema.studentProfiles)
+      .set({ sheikhId: newSheikhId })
+      .where(eq(schema.studentProfiles.userId, studentId));
   },
 
-  // Recent feedbacks for Admin review
+  // Recent guidance messages for Admin review (student questions stay private)
   getRecentFeedbacksAll: async (limitCount = 6) => {
-    if (db) {
-      try {
-        const rows = await db
-          .select({
-            id: schema.feedbackMessages.id,
-            content: schema.feedbackMessages.content,
-            type: schema.feedbackMessages.type,
-            createdAt: schema.feedbackMessages.createdAt,
-            sheikhId: schema.feedbackMessages.sheikhId,
-            studentId: schema.feedbackMessages.studentId,
-          })
-          .from(schema.feedbackMessages)
-          .orderBy(desc(schema.feedbackMessages.createdAt))
-          .limit(limitCount);
+    const sheikhUsers = alias(schema.users, "sheikh_users");
+    const rows = await getDb()
+      .select({
+        id: schema.feedbackMessages.id,
+        content: schema.feedbackMessages.content,
+        type: schema.feedbackMessages.type,
+        createdAt: schema.feedbackMessages.createdAt,
+        sheikhName: sheikhUsers.name,
+        studentName: schema.users.name,
+      })
+      .from(schema.feedbackMessages)
+      .leftJoin(sheikhUsers, eq(sheikhUsers.id, schema.feedbackMessages.sheikhId))
+      .leftJoin(schema.users, eq(schema.users.id, schema.feedbackMessages.studentId))
+      .where(eq(schema.feedbackMessages.kind, "guidance"))
+      .orderBy(desc(schema.feedbackMessages.createdAt))
+      .limit(limitCount);
 
-        const usersList = await db.select().from(schema.users);
-        const nameMap = new Map(usersList.map((u) => [u.id, u.name]));
-
-        return rows.map((r) => ({
-          id: r.id,
-          content: r.content,
-          type: r.type,
-          createdAt: r.createdAt ? new Date(r.createdAt).toLocaleDateString("ar-SA") : "حديثاً",
-          sheikhName: nameMap.get(r.sheikhId) || "الشيخ المشرف",
-          studentName: nameMap.get(r.studentId) || "طالب علم",
-        }));
-      } catch (err) {
-        console.warn("Failed to get feedbacks:", err);
-      }
-    }
-
-    return [
-      {
-        id: "fb-1",
-        content: "ما شاء الله يا بني، مواظبتك على صلاة الفجر في جماعة لليوم الرابع عشر تثلج الصدر. حافظ على ورد تدبر القرآن ولا تعجل في القراءة.",
-        type: "praise" as const,
-        createdAt: "اليوم",
-        sheikhName: "الشيخ محمود عبد الحليم",
-        studentName: "أحمد بن عبد الرحمن",
-      },
-      {
-        id: "fb-2",
-        content: "لاحظت تأخرك عن أذكار المساء بالأمس، احرص على البدء بها بعد صلاة العصر مباشرة فهي حرزك الحصين.",
-        type: "advice" as const,
-        createdAt: "أمس",
-        sheikhName: "الشيخ محمود عبد الحليم",
-        studentName: "بلال بن مسعود",
-      },
-    ];
+    return rows.map((r) => ({
+      id: r.id,
+      content: r.content,
+      type: r.type,
+      createdAt: formatTimestamp(r.createdAt, { day: "numeric", month: "short", year: "numeric" }),
+      sheikhName: r.sheikhName || "الشيخ المشرف",
+      studentName: r.studentName || "طالب علم",
+    }));
   },
 };

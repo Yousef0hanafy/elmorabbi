@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, timestamp, boolean, integer, index, uniqueIndex } from "drizzle-orm/pg-core";
 
 export const users = pgTable("users", {
   id: text("id").primaryKey(),
@@ -13,7 +13,7 @@ export const users = pgTable("users", {
 
 export const sheikhProfiles = pgTable("sheikh_profiles", {
   id: text("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id").notNull().unique().references(() => users.id),
   title: text("title").notNull(),
   bio: text("bio"),
   isAcceptingStudents: boolean("is_accepting_students").default(true).notNull(),
@@ -24,12 +24,13 @@ export const sheikhProfiles = pgTable("sheikh_profiles", {
 
 export const studentProfiles = pgTable("student_profiles", {
   id: text("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => users.id),
+  userId: text("user_id").notNull().unique().references(() => users.id),
   sheikhId: text("sheikh_id").references(() => users.id),
+  // Legacy column: streaks are now computed from daily_logs (see lib/scoring.ts)
   streakDays: integer("streak_days").default(0).notNull(),
   level: text("level").default("طالب مبتدئ").notNull(),
   status: text("status", { enum: ["active", "pending_approval", "paused"] }).default("active").notNull(),
-});
+}, (t) => [index("student_profiles_sheikh_idx").on(t.sheikhId)]);
 
 export const dailyLogs = pgTable("daily_logs", {
   id: text("id").primaryKey(),
@@ -47,7 +48,7 @@ export const dailyLogs = pgTable("daily_logs", {
   fasting: text("fasting", { enum: ["none", "voluntary", "fard"] }).default("none").notNull(),
   notes: text("notes"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+}, (t) => [uniqueIndex("daily_logs_student_date_idx").on(t.studentId, t.date)]);
 
 export const feedbackMessages = pgTable("feedback_messages", {
   id: text("id").primaryKey(),
@@ -55,9 +56,15 @@ export const feedbackMessages = pgTable("feedback_messages", {
   studentId: text("student_id").notNull().references(() => users.id),
   content: text("content").notNull(),
   type: text("type", { enum: ["praise", "advice", "warning", "general"] }).default("general").notNull(),
+  // guidance: sheikh -> student; question: student -> sheikh
+  kind: text("kind", { enum: ["guidance", "question"] }).default("guidance").notNull(),
+  category: text("category"),
   isRead: boolean("is_read").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-});
+}, (t) => [
+  index("feedback_student_idx").on(t.studentId),
+  index("feedback_sheikh_idx").on(t.sheikhId),
+]);
 
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

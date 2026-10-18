@@ -30,3 +30,5 @@ export function cleanText(value: unknown, maxLength: number): string | null {
   if (!trimmed || trimmed.length > maxLength) return null;
   return trimmed;
 }
+
+export const SAVE_ERROR_MESSAGE = "تعذر الحفظ، يرجى المحاولة مرة أخرى";
