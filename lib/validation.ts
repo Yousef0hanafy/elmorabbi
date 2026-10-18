@@ -6,7 +6,10 @@ export const MAX_NOTES_LENGTH = 2000;
 export const MAX_QURAN_PAGES = 604;
 
 export const PRAYER_KEYS = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
-export const PRAYER_STATUSES = ["congregation", "ontime", "late", "missed"] as const;
+// "pending" = not logged yet (the state every new day starts in)
+export const PRAYER_STATUSES = ["pending", "congregation", "ontime", "late", "missed"] as const;
+// Statuses that mean the prayer was actually prayed
+export const PRAYED_STATUSES = ["congregation", "ontime", "late"] as const;
 export const FASTING_STATUSES = ["none", "voluntary", "fard"] as const;
 export const FEEDBACK_TYPES = ["praise", "advice", "warning", "general"] as const;
 

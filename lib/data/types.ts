@@ -1,5 +1,7 @@
 // Shapes returned by the data layer; safe to import as types from client components
 
+import type { PrayerStatus } from "../validation";
+
 export interface UserRecord {
   id: string;
   name: string;
@@ -28,11 +30,11 @@ export interface DailyLogRecord {
   id: string;
   studentId: string;
   date: string; // YYYY-MM-DD (Egypt calendar day)
-  fajr: "congregation" | "ontime" | "late" | "missed";
-  dhuhr: "congregation" | "ontime" | "late" | "missed";
-  asr: "congregation" | "ontime" | "late" | "missed";
-  maghrib: "congregation" | "ontime" | "late" | "missed";
-  isha: "congregation" | "ontime" | "late" | "missed";
+  fajr: PrayerStatus;
+  dhuhr: PrayerStatus;
+  asr: PrayerStatus;
+  maghrib: PrayerStatus;
+  isha: PrayerStatus;
   quranRead: boolean;
   quranPages: number;
   adhkarMorning: boolean;

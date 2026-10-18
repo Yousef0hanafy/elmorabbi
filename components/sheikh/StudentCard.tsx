@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { needsFollowUp } from "@/lib/scoring";
+import { hasLoggedAnything, needsFollowUp } from "@/lib/scoring";
 import Link from "next/link";
 import type { DailyLogRecord, StudentProfileRecord } from "@/lib/data-service";
 import { SendFeedbackDialog } from "./SendFeedbackDialog";
@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Clock,
   XCircle,
+  Circle,
   Users,
   Moon,
 } from "lucide-react";
@@ -38,7 +39,7 @@ export function StudentCard({ student }: StudentCardProps) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const log = student.todayLog;
 
-  const statusIcons = { congregation: Users, ontime: CheckCircle2, late: Clock, missed: XCircle };
+  const statusIcons = { pending: Circle, congregation: Users, ontime: CheckCircle2, late: Clock, missed: XCircle };
 
   const isFallingBehind = needsFollowUp(log);
 
@@ -50,8 +51,13 @@ export function StudentCard({ student }: StudentCardProps) {
           <div className="bg-rose-50 border-b border-rose-200/60 -mx-5 -mt-5 px-5 py-2 flex items-center justify-between">
             <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-700">
               <AlertTriangle className="w-3.5 h-3.5" />
-              يحتاج متابعة وتوجيه من الشيخ (تأخر في الفجر أو الورد)
+              يحتاج متابعة (فاتته صلاة أو قضى الفجر)
             </span>
+          </div>
+        )}
+        {!isFallingBehind && !hasLoggedAnything(log) && (
+          <div className="bg-slate-50 border-b border-slate-200/60 -mx-5 -mt-5 px-5 py-2">
+            <span className="text-xs font-semibold text-slate-500">لم يسجّل ورده اليوم بعد</span>
           </div>
         )}
 
@@ -94,7 +100,7 @@ export function StudentCard({ student }: StudentCardProps) {
           </span>
           <div className="grid grid-cols-5 gap-1.5 text-center">
             {PRAYERS.map((p) => {
-              const status = log ? log[p.key] : "missed";
+              const status = log ? log[p.key] : "pending";
               const Icon = statusIcons[status];
               return (
                 <div

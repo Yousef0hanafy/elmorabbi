@@ -38,7 +38,7 @@ export function SheikhStats({
     {
       label: "يحتاجون لمتابعة",
       value: `${needsAttentionCount} طلاب`,
-      subtext: "تأخر في الفجر أو الورد",
+      subtext: "فاتته صلاة أو قضى الفجر اليوم",
       icon: AlertCircle,
       color: "bg-rose-100 text-rose-800",
     },

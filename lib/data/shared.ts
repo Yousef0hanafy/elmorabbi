@@ -1,9 +1,10 @@
 import "server-only";
 
 import { getDb, schema } from "@/db";
-import { eq, and, gte, inArray, ne } from "drizzle-orm";
+import { and, eq, gte, inArray } from "drizzle-orm";
 import { addDays, todayDateString } from "../dates";
 import { computeStreak } from "../scoring";
+import { PRAYED_STATUSES } from "../validation";
 import { DuplicateEmailError, type DailyLogRecord } from "./types";
 
 // Streaks look back at most this many days
@@ -46,11 +47,11 @@ export async function getStreaks(studentIds: string[]): Promise<Map<string, numb
       and(
         inArray(schema.dailyLogs.studentId, studentIds),
         gte(schema.dailyLogs.date, addDays(today, -STREAK_LOOKBACK_DAYS)),
-        ne(schema.dailyLogs.fajr, "missed"),
-        ne(schema.dailyLogs.dhuhr, "missed"),
-        ne(schema.dailyLogs.asr, "missed"),
-        ne(schema.dailyLogs.maghrib, "missed"),
-        ne(schema.dailyLogs.isha, "missed")
+        inArray(schema.dailyLogs.fajr, [...PRAYED_STATUSES]),
+        inArray(schema.dailyLogs.dhuhr, [...PRAYED_STATUSES]),
+        inArray(schema.dailyLogs.asr, [...PRAYED_STATUSES]),
+        inArray(schema.dailyLogs.maghrib, [...PRAYED_STATUSES]),
+        inArray(schema.dailyLogs.isha, [...PRAYED_STATUSES])
       )
     );
 

@@ -13,6 +13,7 @@ import {
   MAX_QURAN_PAGES,
   PRAYER_KEYS,
   PRAYER_STATUSES,
+  type PrayerStatus,
   SAVE_ERROR_MESSAGE,
 } from "../validation";
 
@@ -30,7 +31,7 @@ async function saveToday(studentId: string, changes: Partial<DailyLogRecord>) {
 
 export async function updatePrayerAction(
   prayerName: "fajr" | "dhuhr" | "asr" | "maghrib" | "isha",
-  status: "congregation" | "ontime" | "late" | "missed"
+  status: PrayerStatus
 ) {
   const session = await getSession();
   if (!session || session.role !== "student") {

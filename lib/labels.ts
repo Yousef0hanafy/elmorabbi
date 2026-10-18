@@ -11,6 +11,7 @@ export const PRAYERS: { key: PrayerKey; name: string }[] = [
 ];
 
 export const PRAYER_STATUS_LABELS: Record<PrayerStatus, string> = {
+  pending: "لم يُسجَّل",
   congregation: "جماعة",
   ontime: "في وقتها",
   late: "قضاء",
@@ -18,6 +19,7 @@ export const PRAYER_STATUS_LABELS: Record<PrayerStatus, string> = {
 };
 
 export const PRAYER_STATUS_BADGE: Record<PrayerStatus, string> = {
+  pending: "bg-slate-100 text-slate-500",
   congregation: "bg-emerald-100 text-emerald-800",
   ontime: "bg-teal-100 text-teal-800",
   late: "bg-amber-100 text-amber-800",
@@ -28,4 +30,11 @@ export const FASTING_LABELS: Record<FastingStatus, string> = {
   none: "مُفطر",
   voluntary: "صائم تطوعاً",
   fard: "صائم فرضاً",
+};
+
+export const FEEDBACK_TYPE_LABELS: Record<"praise" | "advice" | "warning" | "general", string> = {
+  praise: "ثناء وتشجيع",
+  advice: "نصيحة وتوجيه",
+  warning: "تنبيه أخوي",
+  general: "توجيه عام",
 };

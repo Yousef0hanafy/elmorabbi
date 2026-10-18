@@ -1,5 +1,6 @@
 import type { DailyLogRecord } from "./data/types";
 import { addDays } from "./dates";
+import { isOneOf, PRAYED_STATUSES } from "./validation";
 
 // Single source of truth for how a day's deeds are counted. Safe for client and server.
 
@@ -30,9 +31,10 @@ export function completionRate(log: DeedFields | undefined): number {
   return Math.round((countCompletedDeeds(log) / TOTAL_DAILY_DEEDS) * 100);
 }
 
-// A day counts toward the streak when all five prayers were prayed (late counts, missed does not)
+// A day counts toward the streak when all five prayers were prayed (qada counts;
+// missed or not-yet-logged prayers do not)
 export function qualifiesForStreak(log: PrayerFields): boolean {
-  return PRAYERS.every((p) => log[p] !== "missed");
+  return PRAYERS.every((p) => isOneOf(PRAYED_STATUSES, log[p]));
 }
 
 // Consecutive qualifying days ending today; if today is not complete yet, the streak
@@ -52,11 +54,11 @@ export function emptyDailyLog(studentId: string, date: string): DailyLogRecord {
     id: `log-${studentId}-${date}`,
     studentId,
     date,
-    fajr: "missed",
-    dhuhr: "missed",
-    asr: "missed",
-    maghrib: "missed",
-    isha: "missed",
+    fajr: "pending",
+    dhuhr: "pending",
+    asr: "pending",
+    maghrib: "pending",
+    isha: "pending",
     quranRead: false,
     quranPages: 0,
     adhkarMorning: false,
@@ -66,13 +68,16 @@ export function emptyDailyLog(studentId: string, date: string): DailyLogRecord {
   };
 }
 
-// Shown to the sheikh as "needs follow-up": nothing logged today, Fajr missed or late,
-// or less than half of today's deeds done
-export function needsFollowUp(todayLog: DeedFields | undefined): boolean {
+// Shown to the sheikh as "needs follow-up": a prayer recorded as missed today, or Fajr
+// prayed as qada. Prayers not logged yet are not held against the student.
+export function needsFollowUp(todayLog: PrayerFields | undefined): boolean {
+  if (!todayLog) return false;
+  return PRAYERS.some((p) => todayLog[p] === "missed") || todayLog.fajr === "late";
+}
+
+export function hasLoggedAnything(log: DeedFields | undefined): boolean {
+  if (!log) return false;
   return (
-    !todayLog ||
-    todayLog.fajr === "missed" ||
-    todayLog.fajr === "late" ||
-    completionRate(todayLog) < 50
+    PRAYERS.some((p) => log[p] !== "pending") || log.quranRead || log.adhkarMorning || log.adhkarEvening
   );
 }
