@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { needsFollowUp } from "@/lib/scoring";
 import { StudentCard } from "./StudentCard";
-import { Users, AlertTriangle, Sparkles, Search, Filter, ChevronDown } from "lucide-react";
-import { DailyLogRecord, StudentProfileRecord } from "@/lib/data-service";
+import { Users, AlertTriangle, Sparkles, Search, ChevronDown } from "lucide-react";
+import type { DailyLogRecord, StudentProfileRecord } from "@/lib/data-service";
 
 interface StudentItem {
   id?: string;
@@ -27,11 +28,7 @@ export function StudentDirectory({ students }: StudentDirectoryProps) {
   const INITIAL_LIMIT = 6;
   const [limit, setLimit] = useState(INITIAL_LIMIT);
 
-  const needsAttention = (s: StudentItem) =>
-    !s.todayLog ||
-    s.todayLog.fajr === "missed" ||
-    s.todayLog.fajr === "late" ||
-    s.completionRate < 50;
+  const needsAttention = (s: StudentItem) => needsFollowUp(s.todayLog);
 
   const isHighPerformer = (s: StudentItem) => s.completionRate >= 80;
 

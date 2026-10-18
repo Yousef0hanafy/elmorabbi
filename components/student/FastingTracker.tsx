@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { Moon, Sparkles, CheckCircle2, ShieldCheck, Flame } from "lucide-react";
 import { updateFastingAction } from "@/lib/actions/log-actions";
 import { todayDateString, weekdayOf } from "@/lib/dates";
-import confetti from "canvas-confetti";
+import { celebrate } from "@/lib/celebrate";
 
 interface FastingTrackerProps {
   initialFasting: "none" | "voluntary" | "fard";
@@ -26,16 +27,7 @@ export function FastingTracker({ initialFasting }: FastingTrackerProps) {
     setSaveError(null);
 
     if (status === "voluntary" || status === "fard") {
-      try {
-        confetti({
-          particleCount: 40,
-          spread: 50,
-          origin: { y: 0.75 },
-          colors: ["#10b981", "#047857", "#fbbf24"],
-        });
-      } catch (e) {
-        // ignore
-      }
+      celebrate();
     }
 
     startTransition(async () => {
@@ -169,11 +161,7 @@ export function FastingTracker({ initialFasting }: FastingTrackerProps) {
           قال ﷺ: <span className="font-semibold">«مَن صام يومًا في سبيل الله، باعَدَ الله وجهه عن النار سبعين خريفًا»</span>
         </p>
       </div>
-      {saveError && (
-        <p role="alert" className="mt-3 text-xs font-medium text-rose-700">
-          {saveError}
-        </p>
-      )}
+      <ErrorAlert message={saveError} className="mt-3" />
     </div>
   );
 }

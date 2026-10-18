@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { Logo } from "@/components/shared/Logo";
-import { BookOpen, Sparkles, LogOut, Compass, Users, CheckCircle2, MessageCircleQuestion } from "lucide-react";
+import { BookOpen, LogOut, Compass, Users, CheckCircle2, MessageCircleQuestion } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth-actions";
 
 export async function Header() {

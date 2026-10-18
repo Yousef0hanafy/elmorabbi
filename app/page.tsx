@@ -1,7 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Header } from "@/components/shared/Header";
-import { getSession } from "@/lib/auth";
 import {
   BookOpen,
   CheckCircle2,
@@ -10,16 +9,11 @@ import {
   ArrowLeft,
   Sparkles,
   Flame,
-  ShieldCheck,
   HeartHandshake,
-  CalendarCheck,
   Clock,
-  Award,
 } from "lucide-react";
 
 export default async function HomePage() {
-  const session = await getSession();
-
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9]">
       <Header />

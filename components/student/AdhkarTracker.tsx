@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { updateAdhkarAction } from "@/lib/actions/log-actions";
 import { Sun, Moon, Check, ShieldCheck, BookOpen } from "lucide-react";
 import { AdhkarModal } from "./AdhkarModal";
@@ -177,11 +178,7 @@ export function AdhkarTracker({ initialMorning, initialEvening }: AdhkarTrackerP
             </div>
           </div>
         </div>
-        {saveError && (
-          <p role="alert" className="mt-3 text-xs font-medium text-rose-700">
-            {saveError}
-          </p>
-        )}
+        <ErrorAlert message={saveError} className="mt-3" />
       </div>
 
       {/* Adhkar interactive reading modal */}

@@ -1,4 +1,4 @@
-import { Users, CheckCircle2, Flame, AlertCircle, HeartHandshake } from "lucide-react";
+import { Users, CheckCircle2, Flame, AlertCircle } from "lucide-react";
 
 interface SheikhStatsProps {
   totalStudents: number;

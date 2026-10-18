@@ -2,7 +2,9 @@
 
 import { MIN_PASSWORD_LENGTH } from "@/lib/validation";
 import { useState, useTransition } from "react";
-import { UserRecord } from "@/lib/data-service";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import { Dialog } from "@/components/ui/Dialog";
+import type { UserRecord } from "@/lib/data-service";
 import {
   resetSheikhPasswordAction,
   createSheikhAction,
@@ -11,15 +13,12 @@ import {
 import {
   KeyRound,
   Plus,
-  ShieldCheck,
   UserCheck,
   X,
   Check,
   Mail,
   Lock,
   Edit,
-  GraduationCap,
-  Sparkles,
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
@@ -207,238 +206,117 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
 
       {/* Modal: Reset Sheikh Password */}
       {passwordSheikh && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <div>
-                <span className="text-xs text-amber-600 font-bold block">إدارة الأمان</span>
-                <h3 className="font-bold text-slate-900 text-base">
-                  تغيير كلمة مرور: {passwordSheikh.name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setPasswordSheikh(null)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <Dialog onClose={() => setPasswordSheikh(null)} label="تغيير كلمة مرور الشيخ" className="max-w-md rounded-3xl p-6">
+          <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+            <div>
+              <span className="text-xs text-amber-600 font-bold block">إدارة الأمان</span>
+              <h3 className="font-bold text-slate-900 text-base">
+                تغيير كلمة مرور: {passwordSheikh.name}
+              </h3>
             </div>
-
-            {successMessage ? (
-              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-2 text-xs font-bold text-center justify-center">
-                <Check className="w-4 h-4" />
-                <span>{successMessage}</span>
-              </div>
-            ) : (
-              <form onSubmit={handleResetPassword} className="space-y-4">
-              {errorMessage && (
-                <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
-                  {errorMessage}
-                </div>
-              )}
-                <input type="hidden" name="sheikhId" value={passwordSheikh.id} />
-
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    البريد الإلكتروني للشيخ
-                  </label>
-                  <input
-                    type="text"
-                    disabled
-                    value={passwordSheikh.email}
-                    className="w-full text-xs rounded-xl border border-slate-200 p-2.5 bg-slate-100 text-slate-500 font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="text-xs font-semibold text-slate-700 block mb-1">
-                    كلمة المرور الجديدة
-                  </label>
-                  <div className="relative">
-                    <input
-                      name="newPassword"
-                      type="text"
-                      required
-                      minLength={MIN_PASSWORD_LENGTH}
-                      autoComplete="new-password"
-                      placeholder="أدخل كلمة المرور الجديدة"
-                      className="w-full text-xs rounded-xl border border-slate-200 p-3 bg-slate-50 text-slate-900 focus:outline-hidden focus:border-amber-500 focus:bg-white transition-all font-mono"
-                    />
-                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
-                  </div>
-                  <span className="text-[10px] text-slate-500 mt-1 block">
-                    يمكنك كتابة كلمة المرور الجديدة وتزويد الشيخ بها لتسجيل الدخول فوراً.
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setPasswordSheikh(null)}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isPending}
-                    className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
-                  >
-                    <KeyRound className="w-3.5 h-3.5" />
-                    <span>{isPending ? "جاري الحفظ..." : "حفظ كلمة المرور"}</span>
-                  </button>
-                </div>
-              </form>
-            )}
+            <button
+              aria-label="إغلاق"
+              onClick={() => setPasswordSheikh(null)}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-        </div>
+
+          {successMessage ? (
+            <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-2 text-xs font-bold text-center justify-center">
+              <Check className="w-4 h-4" />
+              <span>{successMessage}</span>
+            </div>
+          ) : (
+            <form onSubmit={handleResetPassword} className="space-y-4">
+            <ErrorAlert message={errorMessage} />
+              <input type="hidden" name="sheikhId" value={passwordSheikh.id} />
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  البريد الإلكتروني للشيخ
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={passwordSheikh.email}
+                  className="w-full text-xs rounded-xl border border-slate-200 p-2.5 bg-slate-100 text-slate-500 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  كلمة المرور الجديدة
+                </label>
+                <div className="relative">
+                  <input
+                    name="newPassword"
+                    type="text"
+                    required
+                    minLength={MIN_PASSWORD_LENGTH}
+                    autoComplete="new-password"
+                    placeholder="أدخل كلمة المرور الجديدة"
+                    className="w-full text-xs rounded-xl border border-slate-200 p-3 bg-slate-50 text-slate-900 focus:outline-hidden focus:border-amber-500 focus:bg-white transition-all font-mono"
+                  />
+                  <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                </div>
+                <span className="text-[10px] text-slate-500 mt-1 block">
+                  يمكنك كتابة كلمة المرور الجديدة وتزويد الشيخ بها لتسجيل الدخول فوراً.
+                </span>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setPasswordSheikh(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs shadow-md transition-all flex items-center gap-1.5"
+                >
+                  <KeyRound className="w-3.5 h-3.5" />
+                  <span>{isPending ? "جاري الحفظ..." : "حفظ كلمة المرور"}</span>
+                </button>
+              </div>
+            </form>
+          )}
+        </Dialog>
       )}
 
       {/* Modal: Edit Sheikh Profile */}
       {editSheikh && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <div>
-                <span className="text-xs text-emerald-700 font-bold block">تعديل الملف</span>
-                <h3 className="font-bold text-slate-900 text-base">
-                  تعديل بيانات: {editSheikh.name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setEditSheikh(null)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <Dialog onClose={() => setEditSheikh(null)} label="تعديل بيانات الشيخ" className="max-w-lg rounded-3xl p-6 sm:p-8">
+          <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+            <div>
+              <span className="text-xs text-emerald-700 font-bold block">تعديل الملف</span>
+              <h3 className="font-bold text-slate-900 text-base">
+                تعديل بيانات: {editSheikh.name}
+              </h3>
             </div>
-
-            {successMessage ? (
-              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-2 text-xs font-bold text-center justify-center">
-                <Check className="w-4 h-4" />
-                <span>{successMessage}</span>
-              </div>
-            ) : (
-              <form onSubmit={handleUpdateProfile} className="space-y-3.5 text-xs">
-              {errorMessage && (
-                <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
-                  {errorMessage}
-                </div>
-              )}
-                <input type="hidden" name="sheikhId" value={editSheikh.id} />
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      اسم الشيخ
-                    </label>
-                    <input
-                      name="name"
-                      defaultValue={editSheikh.name}
-                      required
-                      className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 text-slate-900"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      البريد الإلكتروني
-                    </label>
-                    <input
-                      name="email"
-                      type="email"
-                      defaultValue={editSheikh.email}
-                      required
-                      className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 text-slate-900 font-mono"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      اسم الحلقة
-                    </label>
-                    <input
-                      name="halaqahName"
-                      defaultValue={editSheikh.halaqahName}
-                      required
-                      className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 text-slate-900"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="font-semibold text-slate-700 block mb-1">
-                      الصفة أو اللقب العلمي
-                    </label>
-                    <input
-                      name="title"
-                      defaultValue={editSheikh.title}
-                      required
-                      className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 text-slate-900"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">
-                    النبذة التعريفية
-                  </label>
-                  <textarea
-                    name="bio"
-                    rows={2}
-                    defaultValue={editSheikh.bio || ""}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 text-slate-900"
-                  />
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setEditSheikh(null)}
-                    className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isPending}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-md transition-all"
-                  >
-                    {isPending ? "جاري الحفظ..." : "حفظ التعديلات"}
-                  </button>
-                </div>
-              </form>
-            )}
+            <button
+              aria-label="إغلاق"
+              onClick={() => setEditSheikh(null)}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-        </div>
-      )}
 
-      {/* Modal: Add New Sheikh */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-lg rounded-3xl p-6 sm:p-8 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <div>
-                <span className="text-xs text-emerald-700 font-bold block">إضافة مربٍ جديد</span>
-                <h3 className="font-bold text-slate-900 text-base">
-                  إنشاء حساب شيخ / معلم قرآن
-                </h3>
-              </div>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          {successMessage ? (
+            <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-2 text-xs font-bold text-center justify-center">
+              <Check className="w-4 h-4" />
+              <span>{successMessage}</span>
             </div>
+          ) : (
+            <form onSubmit={handleUpdateProfile} className="space-y-3.5 text-xs">
+            <ErrorAlert message={errorMessage} />
+              <input type="hidden" name="sheikhId" value={editSheikh.id} />
 
-            <form onSubmit={handleCreateSheikh} className="space-y-3.5 text-xs">
-              {errorMessage && (
-                <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
-                  {errorMessage}
-                </div>
-              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">
@@ -446,22 +324,22 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
                   </label>
                   <input
                     name="name"
+                    defaultValue={editSheikh.name}
                     required
-                    placeholder="فضيلة الشيخ..."
-                    className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900"
+                    className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 text-slate-900"
                   />
                 </div>
 
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">
-                    البريد الإلكتروني (لتسجيل الدخول)
+                    البريد الإلكتروني
                   </label>
                   <input
                     name="email"
                     type="email"
+                    defaultValue={editSheikh.email}
                     required
-                    placeholder="sheikh@example.com"
-                    className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900 font-mono"
+                    className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 text-slate-900 font-mono"
                   />
                 </div>
               </div>
@@ -469,60 +347,45 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">
-                    كلمة المرور الابتدائية
+                    اسم الحلقة
                   </label>
                   <input
-                    name="password"
-                    type="text"
+                    name="halaqahName"
+                    defaultValue={editSheikh.halaqahName}
                     required
-                    minLength={MIN_PASSWORD_LENGTH}
-                    autoComplete="new-password"
-                    placeholder={`${MIN_PASSWORD_LENGTH} أحرف على الأقل`}
-                    className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900 font-mono"
+                    className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 text-slate-900"
                   />
                 </div>
 
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">
-                    اسم الحلقة
+                    الصفة أو اللقب العلمي
                   </label>
                   <input
-                    name="halaqahName"
+                    name="title"
+                    defaultValue={editSheikh.title}
                     required
-                    placeholder="مثال: حلقة الهدى والنور"
-                    className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900"
+                    className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 text-slate-900"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="font-semibold text-slate-700 block mb-1">
-                  الصفة أو اللقب العلمي
-                </label>
-                <input
-                  name="title"
-                  required
-                  placeholder="مثال: إمام ومدرس التجويد، مجاز في القراءات"
-                  className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900"
-                />
-              </div>
-
-              <div>
-                <label className="font-semibold text-slate-700 block mb-1">
-                  نبذة تعريفية (اختياري)
+                  النبذة التعريفية
                 </label>
                 <textarea
                   name="bio"
                   rows={2}
-                  placeholder="نبذة مختصرة عن الشيخ ومنهجه التربوي..."
-                  className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900"
+                  defaultValue={editSheikh.bio || ""}
+                  className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 text-slate-900"
                 />
               </div>
 
               <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
                 <button
                   type="button"
-                  onClick={() => setIsAddModalOpen(false)}
+                  onClick={() => setEditSheikh(null)}
                   className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold"
                 >
                   إلغاء
@@ -532,12 +395,133 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
                   disabled={isPending}
                   className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-md transition-all"
                 >
-                  {isPending ? "جاري الحفظ..." : "حفظ وإنشاء حساب الشيخ"}
+                  {isPending ? "جاري الحفظ..." : "حفظ التعديلات"}
                 </button>
               </div>
             </form>
+          )}
+        </Dialog>
+      )}
+
+      {/* Modal: Add New Sheikh */}
+      {isAddModalOpen && (
+        <Dialog onClose={() => setIsAddModalOpen(false)} label="إضافة شيخ جديد" className="max-w-lg rounded-3xl p-6 sm:p-8">
+          <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+            <div>
+              <span className="text-xs text-emerald-700 font-bold block">إضافة مربٍ جديد</span>
+              <h3 className="font-bold text-slate-900 text-base">
+                إنشاء حساب شيخ / معلم قرآن
+              </h3>
+            </div>
+            <button
+              aria-label="إغلاق"
+              onClick={() => setIsAddModalOpen(false)}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-        </div>
+
+          <form onSubmit={handleCreateSheikh} className="space-y-3.5 text-xs">
+            <ErrorAlert message={errorMessage} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  اسم الشيخ
+                </label>
+                <input
+                  name="name"
+                  required
+                  placeholder="فضيلة الشيخ..."
+                  className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  البريد الإلكتروني (لتسجيل الدخول)
+                </label>
+                <input
+                  name="email"
+                  type="email"
+                  required
+                  placeholder="sheikh@example.com"
+                  className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900 font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  كلمة المرور الابتدائية
+                </label>
+                <input
+                  name="password"
+                  type="text"
+                  required
+                  minLength={MIN_PASSWORD_LENGTH}
+                  autoComplete="new-password"
+                  placeholder={`${MIN_PASSWORD_LENGTH} أحرف على الأقل`}
+                  className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900 font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  اسم الحلقة
+                </label>
+                <input
+                  name="halaqahName"
+                  required
+                  placeholder="مثال: حلقة الهدى والنور"
+                  className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">
+                الصفة أو اللقب العلمي
+              </label>
+              <input
+                name="title"
+                required
+                placeholder="مثال: إمام ومدرس التجويد، مجاز في القراءات"
+                className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900"
+              />
+            </div>
+
+            <div>
+              <label className="font-semibold text-slate-700 block mb-1">
+                نبذة تعريفية (اختياري)
+              </label>
+              <textarea
+                name="bio"
+                rows={2}
+                placeholder="نبذة مختصرة عن الشيخ ومنهجه التربوي..."
+                className="w-full rounded-xl border border-slate-200 p-2.5 bg-slate-50 focus:bg-white focus:border-emerald-500 transition-all text-slate-900"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setIsAddModalOpen(false)}
+                className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold"
+              >
+                إلغاء
+              </button>
+              <button
+                type="submit"
+                disabled={isPending}
+                className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-md transition-all"
+              >
+                {isPending ? "جاري الحفظ..." : "حفظ وإنشاء حساب الشيخ"}
+              </button>
+            </div>
+          </form>
+        </Dialog>
       )}
     </div>
   );

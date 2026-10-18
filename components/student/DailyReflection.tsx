@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { updateNotesAction } from "@/lib/actions/log-actions";
 import { MessageSquare, Send, Check } from "lucide-react";
 
@@ -77,11 +78,7 @@ export function DailyReflection({ initialNotes = "" }: DailyReflectionProps) {
           </button>
         </div>
       </div>
-      {saveError && (
-        <p role="alert" className="mt-3 text-xs font-medium text-rose-700">
-          {saveError}
-        </p>
-      )}
+      <ErrorAlert message={saveError} className="mt-3" />
     </div>
   );
 }

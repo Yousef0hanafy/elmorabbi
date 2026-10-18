@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Trophy, Flame, Sparkles, User, Medal, ChevronDown, ChevronUp } from "lucide-react";
+import { Flame, Medal, ChevronDown, ChevronUp } from "lucide-react";
 
 interface PeerStudent {
   id: string;

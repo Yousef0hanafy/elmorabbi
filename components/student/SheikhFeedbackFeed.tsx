@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FeedbackRecord } from "@/lib/data-service";
+import type { FeedbackRecord } from "@/lib/data-service";
 import { MessageSquareQuote, HeartHandshake, AlertCircle, Sparkles, MessageCircleQuestion, ChevronDown, ChevronUp } from "lucide-react";
 import { AskSheikhModal } from "./AskSheikhModal";
 

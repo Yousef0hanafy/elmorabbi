@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { UserRecord } from "@/lib/data-service";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import type { UserRecord } from "@/lib/data-service";
 import { chooseSheikhAction } from "@/lib/actions/sheikh-actions";
 import { useRouter } from "next/navigation";
-import { UserCheck, Check, Search, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { UserCheck, Check, Search, ChevronDown, ChevronUp } from "lucide-react";
 
 interface ChooseSheikhDirectoryProps {
   sheikhs: Pick<UserRecord, "id" | "name" | "title" | "bio" | "halaqahName">[];
@@ -60,11 +61,7 @@ export function ChooseSheikhDirectory({
 
   return (
     <div className="space-y-4">
-      {errorMessage && (
-        <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
-          {errorMessage}
-        </div>
-      )}
+      <ErrorAlert message={errorMessage} />
 
       {/* Search Bar */}
       {sheikhs.length > 2 && (
@@ -86,7 +83,7 @@ export function ChooseSheikhDirectory({
       {/* Sheikh Cards Grid */}
       {filteredSheikhs.length === 0 ? (
         <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-2">
-          <p className="text-xs text-slate-500">لا يوجد مشايخ يطابقون بحثك "{searchTerm}"</p>
+          <p className="text-xs text-slate-500">لا يوجد مشايخ يطابقون بحثك «{searchTerm}»</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">

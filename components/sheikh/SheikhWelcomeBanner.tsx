@@ -1,17 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Megaphone, Users } from "lucide-react";
+import { Sparkles, Megaphone } from "lucide-react";
 import { BroadcastMessageDialog } from "./BroadcastMessageDialog";
 
 interface SheikhWelcomeBannerProps {
-  sheikhName: string;
   halaqahName: string;
   totalStudents: number;
 }
 
 export function SheikhWelcomeBanner({
-  sheikhName,
   halaqahName,
   totalStudents,
 }: SheikhWelcomeBannerProps) {

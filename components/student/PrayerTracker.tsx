@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { updatePrayerAction } from "@/lib/actions/log-actions";
-import { DailyLogRecord } from "@/lib/data-service";
-import confetti from "canvas-confetti";
+import type { DailyLogRecord } from "@/lib/data-service";
+import { celebrate } from "@/lib/celebrate";
 import { CheckCircle2, Clock, Users, XCircle, Sparkles } from "lucide-react";
 
 interface PrayerTrackerProps {
@@ -78,12 +79,7 @@ export function PrayerTracker({ initialLog }: PrayerTrackerProps) {
       );
 
       if (allDone) {
-        confetti({
-          particleCount: 80,
-          spread: 70,
-          origin: { y: 0.6 },
-          colors: ["#059669", "#d97706", "#10b981"],
-        });
+        celebrate("large");
       }
     });
   };
@@ -152,11 +148,7 @@ export function PrayerTracker({ initialLog }: PrayerTrackerProps) {
           );
         })}
       </div>
-      {saveError && (
-        <p role="alert" className="mt-3 text-xs font-medium text-rose-700">
-          {saveError}
-        </p>
-      )}
+      <ErrorAlert message={saveError} className="mt-3" />
     </div>
   );
 }

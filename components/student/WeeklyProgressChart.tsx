@@ -5,6 +5,7 @@ import { TrendingUp, Award, Flame, CheckCircle2 } from "lucide-react";
 import type { DailyLogRecord } from "@/lib/data-service";
 import { formatDay, todayDateString } from "@/lib/dates";
 import { completionRate, countCompletedDeeds } from "@/lib/scoring";
+import { FASTING_LABELS, PRAYER_STATUS_LABELS } from "@/lib/labels";
 
 interface WeeklyProgressChartProps {
   history: DailyLogRecord[];
@@ -144,7 +145,7 @@ export function WeeklyProgressChart({ history }: WeeklyProgressChartProps) {
           <div className="flex items-center gap-2">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>
-              سجل يوم <span className="font-bold">{selectedDay.date}</span>: الفجر ({selectedDay.fajr === "congregation" ? "جماعة" : selectedDay.fajr === "ontime" ? "في الوقت" : "فائتة"})، القرآن ({selectedDay.quranPages} ص)، {selectedDay.fasting !== "none" ? "صائم" : "غير صائم"}.
+              سجل يوم <span className="font-bold">{formatDay(selectedDay.date, { weekday: "long", day: "numeric", month: "short" })}</span>: الفجر ({PRAYER_STATUS_LABELS[selectedDay.fajr]})، القرآن ({selectedDay.quranPages} ص)، {FASTING_LABELS[selectedDay.fasting]}.
             </span>
           </div>
           <button

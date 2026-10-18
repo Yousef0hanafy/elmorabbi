@@ -1,3 +1,4 @@
+import { needsFollowUp } from "@/lib/scoring";
 import { formatDay, todayDateString } from "@/lib/dates";
 import { Header } from "@/components/shared/Header";
 import { BottomNav } from "@/components/shared/BottomNav";
@@ -7,7 +8,7 @@ import { SheikhQuestionsFeed } from "@/components/sheikh/SheikhQuestionsFeed";
 import { StudentDirectory } from "@/components/sheikh/StudentDirectory";
 import { requireRole } from "@/lib/auth";
 import { dataService } from "@/lib/data-service";
-import { Users, Sparkles } from "lucide-react";
+import { Users } from "lucide-react";
 
 export default async function SheikhDashboardPage() {
   const session = await requireRole("sheikh");
@@ -30,13 +31,7 @@ export default async function SheikhDashboardPage() {
     (s) => s.todayLog?.fajr === "congregation" || s.todayLog?.fajr === "ontime"
   ).length;
 
-  const needsAttentionCount = students.filter(
-    (s) =>
-      !s.todayLog ||
-      s.todayLog.fajr === "missed" ||
-      s.todayLog.fajr === "late" ||
-      s.completionRate < 50
-  ).length;
+  const needsAttentionCount = students.filter((s) => needsFollowUp(s.todayLog)).length;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9] pb-24 md:pb-12 font-sans" dir="rtl">
@@ -45,7 +40,6 @@ export default async function SheikhDashboardPage() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
         {/* Welcome & Broadcast Banner (Supervision card removed) */}
         <SheikhWelcomeBanner
-          sheikhName={sheikhUser?.name || session.name}
           halaqahName={sheikhUser?.halaqahName || `حلقة ${sheikhUser?.name || "المربي"}`}
           totalStudents={totalStudents}
         />

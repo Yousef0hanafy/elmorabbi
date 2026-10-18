@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MessageCircleQuestion, Send, Reply, Sparkles, CheckCircle2, Clock, User, ChevronDown } from "lucide-react";
+import { MessageCircleQuestion, Reply, Clock, ChevronDown } from "lucide-react";
 import { SendFeedbackDialog } from "./SendFeedbackDialog";
 
 interface InquiryItem {

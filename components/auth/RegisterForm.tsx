@@ -14,7 +14,6 @@ import {
   Lock,
   User,
   Phone,
-  Sparkles,
 } from "lucide-react";
 
 interface RegisterFormProps {

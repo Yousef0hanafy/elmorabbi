@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { Award, Lock, Sparkles, CheckCircle2, Trophy, X } from "lucide-react";
-import confetti from "canvas-confetti";
+import { Dialog } from "@/components/ui/Dialog";
+import { Lock, Sparkles, CheckCircle2, Trophy, X } from "lucide-react";
+import { celebrate } from "@/lib/celebrate";
 
 interface BadgeItem {
   id: string;
@@ -104,16 +105,7 @@ export function BadgesSection({
   const handleBadgeClick = (badge: BadgeItem) => {
     setSelectedBadge(badge);
     if (badge.isUnlocked) {
-      try {
-        confetti({
-          particleCount: 35,
-          spread: 45,
-          origin: { y: 0.6 },
-          colors: ["#f59e0b", "#10b981", "#3b82f6"],
-        });
-      } catch (e) {
-        // ignore
-      }
+      celebrate();
     }
   };
 
@@ -191,55 +183,54 @@ export function BadgesSection({
 
       {/* Badge Details Dialog / Modal */}
       {selectedBadge && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-gray-100 relative text-center">
-            <button
-              onClick={() => setSelectedBadge(null)}
-              className="absolute top-4 left-4 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
+        <Dialog onClose={() => setSelectedBadge(null)} label="تفاصيل الوسام" className="rounded-3xl max-w-sm p-6 relative text-center">
+          <button
+            aria-label="إغلاق"
+            onClick={() => setSelectedBadge(null)}
+            className="absolute top-4 left-4 p-1.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
 
-            <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-50 border-2 border-amber-300 flex items-center justify-center text-3xl mb-3 shadow-inner">
-              {selectedBadge.icon}
-            </div>
-
-            <h4 className="font-bold text-gray-900 text-lg mb-1">{selectedBadge.title}</h4>
-
-            <div className="inline-block mb-3">
-              <span
-                className={`text-xs font-bold px-3 py-1 rounded-full ${
-                  selectedBadge.isUnlocked
-                    ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
-                    : "bg-amber-100 text-amber-800 border border-amber-200"
-                }`}
-              >
-                {selectedBadge.isUnlocked ? "وسام مكتسب وموثق 🏆" : "وسام قيد التحقيق 🔒"}
-              </span>
-            </div>
-
-            <p className="text-xs text-gray-600 leading-relaxed mb-4">
-              {selectedBadge.description}
-            </p>
-
-            {selectedBadge.hadith && (
-              <div className="bg-emerald-50 rounded-2xl p-3 text-xs text-emerald-900 border border-emerald-200 mb-4">
-                <p className="italic font-medium">{selectedBadge.hadith}</p>
-              </div>
-            )}
-
-            <div className="bg-gray-50 rounded-2xl p-3 text-xs font-semibold text-gray-700 mb-4">
-              التقدم الحالي: <span className="text-emerald-700">{selectedBadge.progress}</span>
-            </div>
-
-            <button
-              onClick={() => setSelectedBadge(null)}
-              className="w-full py-2.5 rounded-xl bg-gray-900 hover:bg-black text-white text-xs font-bold transition-colors"
-            >
-              إغلاق
-            </button>
+          <div className="w-16 h-16 mx-auto rounded-3xl bg-amber-50 border-2 border-amber-300 flex items-center justify-center text-3xl mb-3 shadow-inner">
+            {selectedBadge.icon}
           </div>
-        </div>
+
+          <h4 className="font-bold text-gray-900 text-lg mb-1">{selectedBadge.title}</h4>
+
+          <div className="inline-block mb-3">
+            <span
+              className={`text-xs font-bold px-3 py-1 rounded-full ${
+                selectedBadge.isUnlocked
+                  ? "bg-emerald-100 text-emerald-800 border border-emerald-200"
+                  : "bg-amber-100 text-amber-800 border border-amber-200"
+              }`}
+            >
+              {selectedBadge.isUnlocked ? "وسام مكتسب وموثق 🏆" : "وسام قيد التحقيق 🔒"}
+            </span>
+          </div>
+
+          <p className="text-xs text-gray-600 leading-relaxed mb-4">
+            {selectedBadge.description}
+          </p>
+
+          {selectedBadge.hadith && (
+            <div className="bg-emerald-50 rounded-2xl p-3 text-xs text-emerald-900 border border-emerald-200 mb-4">
+              <p className="italic font-medium">{selectedBadge.hadith}</p>
+            </div>
+          )}
+
+          <div className="bg-gray-50 rounded-2xl p-3 text-xs font-semibold text-gray-700 mb-4">
+            التقدم الحالي: <span className="text-emerald-700">{selectedBadge.progress}</span>
+          </div>
+
+          <button
+            onClick={() => setSelectedBadge(null)}
+            className="w-full py-2.5 rounded-xl bg-gray-900 hover:bg-black text-white text-xs font-bold transition-colors"
+          >
+            إغلاق
+          </button>
+        </Dialog>
       )}
     </div>
   );

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { UserRecord } from "@/lib/data-service";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import type { UserRecord } from "@/lib/data-service";
 import { approveSheikhAction, rejectSheikhAction } from "@/lib/actions/admin-actions";
 import {
   UserCheck,
@@ -11,10 +12,9 @@ import {
   Phone,
   BookOpen,
   CheckCircle2,
-  AlertCircle,
   Sparkles,
 } from "lucide-react";
-import confetti from "canvas-confetti";
+import { celebrate } from "@/lib/celebrate";
 
 interface PendingSheikhsListProps {
   pendingSheikhs: UserRecord[];
@@ -31,16 +31,7 @@ export function PendingSheikhsList({ pendingSheikhs }: PendingSheikhsListProps) 
       setErrorMessage(res.error ?? null);
       if (res.success) {
         setActionMessage(`تم اعتماد الشيخ ${sheikh.name} بنجاح! حسابه الآن نشط وحلقته متاحة للطلاب.`);
-        try {
-          confetti({
-            particleCount: 50,
-            spread: 60,
-            origin: { y: 0.5 },
-            colors: ["#10b981", "#fbbf24", "#047857"],
-          });
-        } catch (e) {
-          // ignore
-        }
+        celebrate();
         setTimeout(() => setActionMessage(null), 4000);
       }
     });
@@ -110,11 +101,7 @@ export function PendingSheikhsList({ pendingSheikhs }: PendingSheikhsListProps) 
       </div>
 
       {/* Action Notification */}
-      {errorMessage && (
-        <div role="alert" className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 font-semibold">
-          {errorMessage}
-        </div>
-      )}
+      <ErrorAlert message={errorMessage} className="mb-4" />
 
       {actionMessage && (
         <div className="mb-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-2.5 text-xs text-emerald-900 font-semibold animate-fadeIn">

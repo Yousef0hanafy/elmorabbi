@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MessageSquareQuote, HeartHandshake, AlertTriangle, Info, Sparkles, ChevronDown, ChevronUp } from "lucide-react";
+import { MessageSquareQuote, ChevronDown, ChevronUp } from "lucide-react";
 
 interface FeedbackItem {
   id: string;

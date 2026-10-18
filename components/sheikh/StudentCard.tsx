@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { needsFollowUp } from "@/lib/scoring";
 import Link from "next/link";
-import { DailyLogRecord, StudentProfileRecord } from "@/lib/data-service";
+import type { DailyLogRecord, StudentProfileRecord } from "@/lib/data-service";
 import { SendFeedbackDialog } from "./SendFeedbackDialog";
+import { PRAYERS, PRAYER_STATUS_BADGE, PRAYER_STATUS_LABELS } from "@/lib/labels";
 import {
   Flame,
   BookOpen,
@@ -36,21 +38,9 @@ export function StudentCard({ student }: StudentCardProps) {
   const [feedbackOpen, setFeedbackOpen] = useState(false);
   const log = student.todayLog;
 
-  const getPrayerBadge = (status?: string) => {
-    switch (status) {
-      case "congregation":
-        return { label: "جماعة", bg: "bg-emerald-100 text-emerald-800", icon: Users };
-      case "ontime":
-        return { label: "في وقتها", bg: "bg-teal-100 text-teal-800", icon: CheckCircle2 };
-      case "late":
-        return { label: "قضاء", bg: "bg-amber-100 text-amber-800", icon: Clock };
-      default:
-        return { label: "فائتة", bg: "bg-rose-100 text-rose-800", icon: XCircle };
-    }
-  };
+  const statusIcons = { congregation: Users, ontime: CheckCircle2, late: Clock, missed: XCircle };
 
-  const isFallingBehind =
-    !log || log.fajr === "missed" || log.fajr === "late" || student.completionRate < 50;
+  const isFallingBehind = needsFollowUp(log);
 
   return (
     <>
@@ -103,27 +93,18 @@ export function StudentCard({ student }: StudentCardProps) {
             متابعة الصلوات لليوم:
           </span>
           <div className="grid grid-cols-5 gap-1.5 text-center">
-            {(
-              [
-                { key: "fajr", name: "الفجر" },
-                { key: "dhuhr", name: "الظهر" },
-                { key: "asr", name: "العصر" },
-                { key: "maghrib", name: "المغرب" },
-                { key: "isha", name: "العشاء" },
-              ] as const
-            ).map((p) => {
+            {PRAYERS.map((p) => {
               const status = log ? log[p.key] : "missed";
-              const badge = getPrayerBadge(status);
-              const Icon = badge.icon;
+              const Icon = statusIcons[status];
               return (
                 <div
                   key={p.key}
-                  className={`p-1.5 rounded-xl border border-transparent text-[11px] flex flex-col items-center gap-0.5 ${badge.bg}`}
+                  className={`p-1.5 rounded-xl border border-transparent text-[11px] flex flex-col items-center gap-0.5 ${PRAYER_STATUS_BADGE[status]}`}
                 >
                   <span className="font-semibold">{p.name}</span>
                   <div className="flex items-center gap-0.5 text-[10px] font-bold">
                     <Icon className="w-3 h-3" />
-                    <span>{badge.label}</span>
+                    <span>{PRAYER_STATUS_LABELS[status]}</span>
                   </div>
                 </div>
               );

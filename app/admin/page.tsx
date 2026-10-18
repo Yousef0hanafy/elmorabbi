@@ -15,8 +15,6 @@ import {
   Flame,
   CheckCircle2,
   LogOut,
-  Sparkles,
-  Clock,
 } from "lucide-react";
 
 export default async function AdminPage() {

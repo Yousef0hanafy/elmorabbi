@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CheckCircle2, MessageSquareQuote, Compass, UserCheck, Shield } from "lucide-react";
+import { CheckCircle2, MessageSquareQuote, Compass, UserCheck } from "lucide-react";
 
 interface BottomNavProps {
   role: "student" | "sheikh" | "admin";

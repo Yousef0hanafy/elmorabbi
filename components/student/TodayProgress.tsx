@@ -1,7 +1,7 @@
 "use client";
 
 import { formatDay, todayDateString } from "@/lib/dates";
-import { Flame, CheckCircle, Award } from "lucide-react";
+import { Flame } from "lucide-react";
 
 interface TodayProgressProps {
   completedDeeds: number;

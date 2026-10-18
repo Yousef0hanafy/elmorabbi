@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import { Dialog } from "@/components/ui/Dialog";
 import { reassignStudentSheikhAction } from "@/lib/actions/admin-actions";
-import { UserRecord } from "@/lib/data-service";
+import type { UserRecord } from "@/lib/data-service";
 import {
   GraduationCap,
   Flame,
-  UserCheck,
-  Compass,
   Check,
   X,
   Phone,
@@ -180,82 +180,77 @@ export function StudentsManagementList({
 
       {/* Modal: Reassign Sheikh */}
       {selectedStudent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm">
-          <div className="bg-white w-full max-w-md rounded-3xl p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
-            <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
-              <div>
-                <span className="text-xs text-emerald-700 font-bold block">إدارة الحلقات</span>
-                <h3 className="font-bold text-slate-900 text-base">
-                  نقل الطالب: {selectedStudent.name}
-                </h3>
-              </div>
-              <button
-                onClick={() => setSelectedStudent(null)}
-                className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
-              >
-                <X className="w-5 h-5" />
-              </button>
+        <Dialog onClose={() => setSelectedStudent(null)} label="نقل الطالب لحلقة أخرى" className="max-w-md rounded-3xl p-6">
+          <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-3">
+            <div>
+              <span className="text-xs text-emerald-700 font-bold block">إدارة الحلقات</span>
+              <h3 className="font-bold text-slate-900 text-base">
+                نقل الطالب: {selectedStudent.name}
+              </h3>
             </div>
-
-            {successMsg ? (
-              <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-2 text-xs font-bold text-center justify-center">
-                <Check className="w-4 h-4" />
-                <span>{successMsg}</span>
-              </div>
-            ) : (
-              <form onSubmit={handleReassign} className="space-y-4 text-xs">
-              {errorMessage && (
-                <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
-                  {errorMessage}
-                </div>
-              )}
-                <input type="hidden" name="studentId" value={selectedStudent.id} />
-
-                <div>
-                  <label className="text-slate-500 block mb-1">الشيخ الحالي:</label>
-                  <span className="font-bold text-slate-800 block bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                    {selectedStudent.sheikhName}
-                  </span>
-                </div>
-
-                <div>
-                  <label className="font-semibold text-slate-700 block mb-1">
-                    اختر الشيخ المربي الجديد
-                  </label>
-                  <select
-                    name="newSheikhId"
-                    required
-                    defaultValue={selectedStudent.sheikhId || ""}
-                    className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-slate-900 focus:bg-white focus:border-emerald-500 text-xs font-medium"
-                  >
-                    {sheikhs.map((sh) => (
-                      <option key={sh.id} value={sh.id}>
-                        {sh.name} — {sh.halaqahName}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedStudent(null)}
-                    className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold"
-                  >
-                    إلغاء
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isPending}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-md transition-all"
-                  >
-                    {isPending ? "جاري النقل..." : "تأكيد النقل للحلقة"}
-                  </button>
-                </div>
-              </form>
-            )}
+            <button
+              aria-label="إغلاق"
+              onClick={() => setSelectedStudent(null)}
+              className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </div>
-        </div>
+
+          {successMsg ? (
+            <div className="p-4 rounded-2xl bg-emerald-50 text-emerald-800 border border-emerald-200 flex items-center gap-2 text-xs font-bold text-center justify-center">
+              <Check className="w-4 h-4" />
+              <span>{successMsg}</span>
+            </div>
+          ) : (
+            <form onSubmit={handleReassign} className="space-y-4 text-xs">
+            <ErrorAlert message={errorMessage} />
+              <input type="hidden" name="studentId" value={selectedStudent.id} />
+
+              <div>
+                <label className="text-slate-500 block mb-1">الشيخ الحالي:</label>
+                <span className="font-bold text-slate-800 block bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                  {selectedStudent.sheikhName}
+                </span>
+              </div>
+
+              <div>
+                <label className="font-semibold text-slate-700 block mb-1">
+                  اختر الشيخ المربي الجديد
+                </label>
+                <select
+                  name="newSheikhId"
+                  required
+                  defaultValue={selectedStudent.sheikhId || ""}
+                  className="w-full rounded-xl border border-slate-200 p-3 bg-slate-50 text-slate-900 focus:bg-white focus:border-emerald-500 text-xs font-medium"
+                >
+                  {sheikhs.map((sh) => (
+                    <option key={sh.id} value={sh.id}>
+                      {sh.name} — {sh.halaqahName}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedStudent(null)}
+                  className="px-4 py-2 rounded-xl text-slate-600 hover:bg-slate-100 font-semibold"
+                >
+                  إلغاء
+                </button>
+                <button
+                  type="submit"
+                  disabled={isPending}
+                  className="px-5 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold shadow-md transition-all"
+                >
+                  {isPending ? "جاري النقل..." : "تأكيد النقل للحلقة"}
+                </button>
+              </div>
+            </form>
+          )}
+        </Dialog>
       )}
     </div>
   );
