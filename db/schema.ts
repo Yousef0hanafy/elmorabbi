@@ -26,8 +26,6 @@ export const studentProfiles = pgTable("student_profiles", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().unique().references(() => users.id),
   sheikhId: text("sheikh_id").references(() => users.id),
-  // Legacy column: streaks are now computed from daily_logs (see lib/scoring.ts)
-  streakDays: integer("streak_days").default(0).notNull(),
   level: text("level").default("طالب مبتدئ").notNull(),
   status: text("status", { enum: ["active", "pending_approval", "paused"] }).default("active").notNull(),
 }, (t) => [index("student_profiles_sheikh_idx").on(t.sheikhId)]);

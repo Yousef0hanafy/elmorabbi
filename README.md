@@ -1,36 +1,78 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# منصة المربي
 
-## Getting Started
+منصة تربوية تربط الطالب بشيخه: الطالب يسجّل ورده اليومي (الصلوات الخمس، القرآن، أذكار الصباح والمساء، الصيام، والمحاسبة اليومية)، والشيخ يتابع طلاب حلقته ويرسل لهم التوجيهات، والإدارة تعتمد المشايخ وتدير المنصة.
 
-First, run the development server:
+## التقنيات
+
+- **Next.js 16** (App Router + Server Actions) و **React 19** و **TypeScript**
+- **Tailwind CSS v4**، وواجهة عربية بالكامل (RTL)
+- **Postgres** عبر **Drizzle ORM**: Neon في الإنتاج، وPostgres محلي للتطوير
+- الجلسات: كوكي موقّع بـ **jose** (HS256)، والباسوردات مشفّرة بـ **bcrypt**
+
+## التشغيل محلياً
 
 ```bash
+npm install
+cp .env.example .env.local   # واملأ القيم
+npm run db:push              # إنشاء/تحديث الجداول
+npm run db:seed              # بيانات تجريبية
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> `db:push` يقرأ `DATABASE_URL` من بيئة التشغيل، فلو مش متعرّف عندك: `DATABASE_URL=... npm run db:push`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### متغيرات البيئة
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| المتغير | مطلوب؟ | الوصف |
+|---|---|---|
+| `DATABASE_URL` | نعم | رابط Postgres. لو الـ host هو `localhost` أو `127.0.0.1` بيستخدم `pg`، وغير كده Neon عن طريق HTTP |
+| `SESSION_SECRET` | نعم في الإنتاج | مفتاح توقيع الجلسات (32 حرف على الأقل): `openssl rand -base64 48` |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | اختياري | حساب أدمن من البيئة. ولو مش موجود، الدخول بيبقى لحسابات الأدمن المتخزنة في القاعدة بس |
+| `SEED_PASSWORD` | اختياري | باسورد كل الحسابات التجريبية (الافتراضي `password123`) |
 
-## Learn More
+### الحسابات التجريبية (بعد `db:seed`)
 
-To learn more about Next.js, take a look at the following resources:
+| الدور | البريد |
+|---|---|
+| شيخ | `sheikh@elmorabbi.com` |
+| طلاب | `ahmed@student.com`، `omar@student.com`، `youssef@student.com` |
+| أدمن | `admin@elmorabbi.com` (من `/admin`) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## السكربتات
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+| الأمر | الوظيفة |
+|---|---|
+| `npm run dev` | التطوير |
+| `npm run build` / `npm start` | بناء وتشغيل الإنتاج |
+| `npm run lint` | ESLint |
+| `npm run db:push` | مزامنة `db/schema.ts` مع القاعدة |
+| `npm run db:seed` | إدخال بيانات تجريبية |
 
-## Deploy on Vercel
+## هيكل المشروع
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+app/                 الصفحات (student / sheikh / admin / login / register) + error.tsx
+components/
+  ui/                مكونات مشتركة (Dialog, ErrorAlert)
+  student/ sheikh/ admin/ auth/ shared/
+lib/
+  auth.ts            الجلسة + requireRole() (المصدر الوحيد للصلاحيات)
+  actions/           Server Actions (فيها التحقق من الصلاحية والمدخلات)
+  data-service.ts    واجهة الوصول للبيانات (بتجمع lib/data/*)
+  data/              استعلامات مقسّمة: users, students, logs, messages
+  scoring.ts         حساب الأعمال والـ streak و"يحتاج متابعة"
+  dates.ts           التواريخ بتوقيت مصر (Africa/Cairo)
+  labels.ts          تسميات وألوان الصلوات والصيام
+  validation.ts      قيم مسموحة وحدود المدخلات
+db/                  schema + seed + الاتصال
+docs/                وثائق الاكتشاف والقرارات
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## قواعد مهمة
+
+- **كل Server Action وكل صفحة محمية** بتبدأ بالتحقق من الجلسة والدور. والجلسة بتتراجع من القاعدة مع كل طلب، فالحساب المحذوف أو الشيخ المرفوض بيخرج فوراً.
+- **مفيش بيانات وهمية في مسار التشغيل**: لو القاعدة مش متاحة، المستخدم بيشوف صفحة خطأ.
+- **اليوم = يوم القاهرة**: استخدم `todayDateString()` من `lib/dates.ts`، وما تستخدمش `toISOString()`.
+- **الـ streak**: الأيام المتتالية اللي اتصلّت فيها الصلوات الخمس (المتأخرة بتتحسب، والفائتة لأ).
+
+حالة المشروع وخطة التحسين في [`docs/discovery/00-current-state-audit.md`](docs/discovery/00-current-state-audit.md).

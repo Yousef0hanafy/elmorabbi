@@ -1,5 +1,7 @@
 # Recommended Architecture
 
+> **ملحوظة (الحالة الفعلية):** المشروع اتنفّذ بـ **Neon Postgres + Drizzle ORM** بدل Supabase، والصلاحيات متطبقة في طبقة التطبيق (`requireRole` + فحص الملكية في الـ Server Actions) بدل RLS، والمهام ثابتة كأعمدة في `daily_logs` بدل `task_templates`. الوثيقة دي هي التوصية الأصلية وقت الاكتشاف. الوضع الحالي موجود في `README.md` و`docs/discovery/`.
+
 Based on the requirements for relational data (Sheikhs/Students), role-based access, and a fast, responsive mobile web experience, I recommend the following stack:
 
 ## The Stack (T3-esque / Supabase)
