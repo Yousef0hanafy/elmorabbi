@@ -1,3 +1,5 @@
+import "server-only";
+
 import bcrypt from "bcryptjs";
 
 const BCRYPT_ROUNDS = 10;

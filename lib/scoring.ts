@@ -1,4 +1,4 @@
-import type { DailyLogRecord } from "./data-service";
+import type { DailyLogRecord } from "./data/types";
 import { addDays } from "./dates";
 
 // Single source of truth for how a day's deeds are counted. Safe for client and server.
@@ -64,4 +64,15 @@ export function emptyDailyLog(studentId: string, date: string): DailyLogRecord {
     fasting: "none",
     notes: undefined,
   };
+}
+
+// Shown to the sheikh as "needs follow-up": nothing logged today, Fajr missed or late,
+// or less than half of today's deeds done
+export function needsFollowUp(todayLog: DeedFields | undefined): boolean {
+  return (
+    !todayLog ||
+    todayLog.fajr === "missed" ||
+    todayLog.fajr === "late" ||
+    completionRate(todayLog) < 50
+  );
 }
