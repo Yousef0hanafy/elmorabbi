@@ -13,27 +13,33 @@ export function QuranTracker({ initialRead, initialPages }: QuranTrackerProps) {
   const [read, setRead] = useState(initialRead);
   const [pages, setPages] = useState(initialPages);
   const [isPending, startTransition] = useTransition();
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const save = (nextRead: boolean, nextPages: number) => {
+    const previous = { read, pages };
+    setRead(nextRead);
+    setPages(nextPages);
+    setSaveError(null);
+
+    startTransition(async () => {
+      const res = await updateQuranAction(nextRead, nextPages);
+      if (res.error) {
+        setRead(previous.read);
+        setPages(previous.pages);
+        setSaveError(res.error);
+      }
+    });
+  };
 
   const handleToggleRead = () => {
     const nextRead = !read;
     const nextPages = nextRead && pages === 0 ? 5 : pages;
-    setRead(nextRead);
-    setPages(nextPages);
-
-    startTransition(async () => {
-      await updateQuranAction(nextRead, nextPages);
-    });
+    save(nextRead, nextPages);
   };
 
   const handleAdjustPages = (delta: number) => {
-    const nextPages = Math.max(0, pages + delta);
-    const nextRead = nextPages > 0;
-    setPages(nextPages);
-    setRead(nextRead);
-
-    startTransition(async () => {
-      await updateQuranAction(nextRead, nextPages);
-    });
+    const nextPages = Math.min(604, Math.max(0, pages + delta));
+    save(nextPages > 0, nextPages);
   };
 
   return (
@@ -114,6 +120,11 @@ export function QuranTracker({ initialRead, initialPages }: QuranTrackerProps) {
           </button>
         </div>
       </div>
+      {saveError && (
+        <p role="alert" className="mt-3 text-xs font-medium text-rose-700">
+          {saveError}
+        </p>
+      )}
     </div>
   );
 }

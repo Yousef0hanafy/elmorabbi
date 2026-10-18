@@ -11,6 +11,7 @@ import { HalaqahLeaderboard } from "@/components/student/HalaqahLeaderboard";
 import { DailyReflection } from "@/components/student/DailyReflection";
 import { SheikhFeedbackFeed } from "@/components/student/SheikhFeedbackFeed";
 import { requireRole } from "@/lib/auth";
+import { countCompletedDeeds, countOnTimePrayers, TOTAL_DAILY_DEEDS } from "@/lib/scoring";
 import { dataService } from "@/lib/data-service";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
@@ -21,10 +22,12 @@ export default async function StudentDashboardPage() {
   const studentId = session.id;
   const studentName = session.name;
 
-  const profile = await dataService.getStudentProfile(studentId);
-  const todayLog = await dataService.getTodayLog(studentId);
-  const feedbacks = await dataService.getFeedbackForStudent(studentId);
-  const historyLogs = await dataService.getStudentHistory(studentId, 7);
+  const [profile, todayLog, feedbacks, historyLogs] = await Promise.all([
+    dataService.getStudentProfile(studentId),
+    dataService.getTodayLog(studentId),
+    dataService.getFeedbackForStudent(studentId),
+    dataService.getStudentHistory(studentId, 7),
+  ]);
 
   const sheikh = profile?.sheikhId
     ? await dataService.getUserById(profile.sheikhId)
@@ -41,16 +44,9 @@ export default async function StudentDashboardPage() {
       }))
     : [];
 
-  // Compute completed deeds
-  let completedDeeds = 0;
-  if (todayLog.fajr === "congregation" || todayLog.fajr === "ontime") completedDeeds++;
-  if (todayLog.dhuhr === "congregation" || todayLog.dhuhr === "ontime") completedDeeds++;
-  if (todayLog.asr === "congregation" || todayLog.asr === "ontime") completedDeeds++;
-  if (todayLog.maghrib === "congregation" || todayLog.maghrib === "ontime") completedDeeds++;
-  if (todayLog.isha === "congregation" || todayLog.isha === "ontime") completedDeeds++;
-  if (todayLog.quranRead) completedDeeds++;
-  if (todayLog.adhkarMorning) completedDeeds++;
-  if (todayLog.adhkarEvening) completedDeeds++;
+  const completedDeeds = countCompletedDeeds(todayLog);
+  const streakDays = profile?.streakDays ?? 0;
+  const weeklyQuranPages = historyLogs.reduce((acc, log) => acc + log.quranPages, 0);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9] pb-24 md:pb-12 font-sans" dir="rtl">
@@ -78,8 +74,8 @@ export default async function StudentDashboardPage() {
         {/* Hero & Daily Progress */}
         <TodayProgress
           completedDeeds={completedDeeds}
-          totalDeeds={8}
-          streakDays={profile?.streakDays || 14}
+          totalDeeds={TOTAL_DAILY_DEEDS}
+          streakDays={streakDays}
           studentName={studentName}
         />
 
@@ -106,10 +102,12 @@ export default async function StudentDashboardPage() {
 
         {/* Gamification Badges Section */}
         <BadgesSection
-          streakDays={profile?.streakDays || 14}
-          completedDeedsToday={completedDeeds}
+          streakDays={streakDays}
+          onTimePrayersToday={countOnTimePrayers(todayLog)}
           fajrInCongregation={todayLog.fajr === "congregation"}
+          adhkarCompletedToday={todayLog.adhkarMorning && todayLog.adhkarEvening}
           isFasting={todayLog.fasting !== "none"}
+          weeklyQuranPages={weeklyQuranPages}
         />
 
         {/* Halaqah Leaderboard & Sheikh Feedbacks */}
@@ -117,7 +115,7 @@ export default async function StudentDashboardPage() {
           <HalaqahLeaderboard
             peers={peers}
             currentStudentId={studentId}
-            halaqahName={sheikh?.title || "المربي"}
+            halaqahName={sheikh?.halaqahName || "المربي"}
           />
           <SheikhFeedbackFeed
             feedbacks={feedbacks}

@@ -55,14 +55,22 @@ const statusOptions: { value: PrayerStatus; label: string; icon: typeof Users; c
 export function PrayerTracker({ initialLog }: PrayerTrackerProps) {
   const [log, setLog] = useState(initialLog);
   const [isPending, startTransition] = useTransition();
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleStatusChange = (prayerKey: PrayerKey, newStatus: PrayerStatus) => {
-    // Optimistic update
+    // Optimistic update, rolled back if saving fails
+    const previous = log;
     const updated = { ...log, [prayerKey]: newStatus };
     setLog(updated);
+    setSaveError(null);
 
     startTransition(async () => {
-      await updatePrayerAction(prayerKey, newStatus);
+      const res = await updatePrayerAction(prayerKey, newStatus);
+      if (res.error) {
+        setLog(previous);
+        setSaveError(res.error);
+        return;
+      }
 
       // Check if all 5 prayers are completed
       const allDone = ["fajr", "dhuhr", "asr", "maghrib", "isha"].every(
@@ -144,6 +152,11 @@ export function PrayerTracker({ initialLog }: PrayerTrackerProps) {
           );
         })}
       </div>
+      {saveError && (
+        <p role="alert" className="mt-3 text-xs font-medium text-rose-700">
+          {saveError}
+        </p>
+      )}
     </div>
   );
 }

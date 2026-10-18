@@ -33,6 +33,7 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
   const [editSheikh, setEditSheikh] = useState<UserRecord | null>(null);
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const INITIAL_LIMIT = 4;
   const [limit, setLimit] = useState(INITIAL_LIMIT);
@@ -41,8 +42,13 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
   const handleResetPassword = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    setErrorMessage(null);
     startTransition(async () => {
-      await resetSheikhPasswordAction(formData);
+      const res = await resetSheikhPasswordAction(formData);
+      if (res.error) {
+        setErrorMessage(res.error);
+        return;
+      }
       setSuccessMessage("تم تحديث كلمة المرور بنجاح");
       setTimeout(() => {
         setSuccessMessage(null);
@@ -54,8 +60,13 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
   const handleUpdateProfile = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    setErrorMessage(null);
     startTransition(async () => {
-      await updateSheikhProfileAction(formData);
+      const res = await updateSheikhProfileAction(formData);
+      if (res.error) {
+        setErrorMessage(res.error);
+        return;
+      }
       setSuccessMessage("تم تحديث بيانات الشيخ بنجاح");
       setTimeout(() => {
         setSuccessMessage(null);
@@ -67,8 +78,13 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
   const handleCreateSheikh = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    setErrorMessage(null);
     startTransition(async () => {
-      await createSheikhAction(formData);
+      const res = await createSheikhAction(formData);
+      if (res.error) {
+        setErrorMessage(res.error);
+        return;
+      }
       setIsAddModalOpen(false);
     });
   };
@@ -87,7 +103,7 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
         </div>
 
         <button
-          onClick={() => setIsAddModalOpen(true)}
+          onClick={() => { setErrorMessage(null); setIsAddModalOpen(true); }}
           className="px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs shadow-sm flex items-center justify-center gap-2 transition-all self-start sm:self-auto"
         >
           <Plus className="w-4 h-4" />
@@ -136,7 +152,7 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => setEditSheikh(sheikh)}
+                  onClick={() => { setErrorMessage(null); setEditSheikh(sheikh); }}
                   className="px-3 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold text-xs flex items-center gap-1 transition-all cursor-pointer"
                   title="تعديل بيانات الشيخ والحلقة"
                 >
@@ -146,7 +162,7 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
 
                 <button
                   type="button"
-                  onClick={() => setPasswordSheikh(sheikh)}
+                  onClick={() => { setErrorMessage(null); setPasswordSheikh(sheikh); }}
                   className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs flex items-center gap-1 transition-all shadow-xs cursor-pointer"
                 >
                   <KeyRound className="w-3 h-3" />
@@ -215,6 +231,11 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
               </div>
             ) : (
               <form onSubmit={handleResetPassword} className="space-y-4">
+              {errorMessage && (
+                <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+                  {errorMessage}
+                </div>
+              )}
                 <input type="hidden" name="sheikhId" value={passwordSheikh.id} />
 
                 <div>
@@ -299,6 +320,11 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
               </div>
             ) : (
               <form onSubmit={handleUpdateProfile} className="space-y-3.5 text-xs">
+              {errorMessage && (
+                <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+                  {errorMessage}
+                </div>
+              )}
                 <input type="hidden" name="sheikhId" value={editSheikh.id} />
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -408,6 +434,11 @@ export function SheikhManagementList({ sheikhs }: SheikhManagementListProps) {
             </div>
 
             <form onSubmit={handleCreateSheikh} className="space-y-3.5 text-xs">
+              {errorMessage && (
+                <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+                  {errorMessage}
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="font-semibold text-slate-700 block mb-1">

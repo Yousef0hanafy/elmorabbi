@@ -33,6 +33,8 @@ export function RegisterForm({
     errorMessage = "البريد الإلكتروني مسجل بالفعل لدينا. يرجى تسجيل الدخول أو استخدام بريد آخر.";
   } else if (errorCode === "missing_fields") {
     errorMessage = "يرجى ملء جميع الحقول الإلزامية.";
+  } else if (errorCode === "server_error") {
+    errorMessage = "تعذر إنشاء الحساب حالياً، يرجى المحاولة مرة أخرى.";
   } else if (errorCode === "weak_password") {
     errorMessage = `كلمة المرور يجب ألا تقل عن ${MIN_PASSWORD_LENGTH} أحرف.`;
   }

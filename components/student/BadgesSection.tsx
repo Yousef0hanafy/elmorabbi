@@ -17,16 +17,22 @@ interface BadgeItem {
 
 interface BadgesSectionProps {
   streakDays: number;
-  completedDeedsToday: number;
+  onTimePrayersToday: number;
   fajrInCongregation: boolean;
+  adhkarCompletedToday: boolean;
   isFasting: boolean;
+  weeklyQuranPages: number;
 }
+
+const QURAN_BADGE_PAGES = 50;
 
 export function BadgesSection({
   streakDays,
-  completedDeedsToday,
+  onTimePrayersToday,
   fajrInCongregation,
+  adhkarCompletedToday,
   isFasting,
+  weeklyQuranPages,
 }: BadgesSectionProps) {
   const [selectedBadge, setSelectedBadge] = useState<BadgeItem | null>(null);
 
@@ -34,7 +40,7 @@ export function BadgesSection({
     {
       id: "streak-14",
       title: "شعلة الاستمرار",
-      description: "المواظبة على الأوراد الإيمانية لأكثر من 14 يوماً متواصلاً دون انقطاع.",
+      description: "المحافظة على الصلوات الخمس 14 يوماً متواصلاً دون انقطاع.",
       icon: "🔥",
       category: "streak",
       isUnlocked: streakDays >= 14,
@@ -47,18 +53,18 @@ export function BadgesSection({
       description: "المحافظة على صلاة الفجر في جماعة المسجد وإدراك تكبيرة الإحرام.",
       icon: "🌅",
       category: "prayer",
-      isUnlocked: fajrInCongregation || streakDays > 7,
+      isUnlocked: fajrInCongregation,
       progress: fajrInCongregation ? "متحقق اليوم" : "صلّ الفجر جماعة",
       hadith: "«مَن صلَّى الصُّبحَ في جماعةٍ فكأنَّما صلَّى اللَّيلَ كُلَّه»",
     },
     {
       id: "quran-lover",
       title: "أنيس الفرقان",
-      description: "قراءة ومراجعة أكثر من 50 صفحة من القرآن الكريم بتدبر وخشوع.",
+      description: `قراءة ${QURAN_BADGE_PAGES} صفحة على الأقل من القرآن الكريم خلال آخر 7 أيام بتدبر وخشوع.`,
       icon: "📖",
       category: "quran",
-      isUnlocked: true,
-      progress: "أتممت 65 صفحة",
+      isUnlocked: weeklyQuranPages >= QURAN_BADGE_PAGES,
+      progress: `${Math.min(weeklyQuranPages, QURAN_BADGE_PAGES)} / ${QURAN_BADGE_PAGES} صفحة هذا الأسبوع`,
       hadith: "«اقرءوا القرآنَ فإنه يأتي يومَ القيامةِ شفيعًا لأصحابه»",
     },
     {
@@ -67,8 +73,8 @@ export function BadgesSection({
       description: "المواظبة التامة على أذكار الصباح وأذكار المساء لتحصين النفس.",
       icon: "📿",
       category: "dhikr",
-      isUnlocked: completedDeedsToday >= 6,
-      progress: completedDeedsToday >= 6 ? "محصن بالأذكار" : "أتمم الوردين اليوم",
+      isUnlocked: adhkarCompletedToday,
+      progress: adhkarCompletedToday ? "محصن بالأذكار" : "أتمم الوردين اليوم",
       hadith: "«مَثَلُ الذي يَذْكُرُ رَبَّه والَّذي لا يَذْكُرُ رَبَّه؛ مَثَلُ الحَيِّ والمَيِّتِ»",
     },
     {
@@ -87,8 +93,8 @@ export function BadgesSection({
       description: "أداء الصلوات الخمس المكتوبة جميعاً في أوقاتها دون أي تأخير.",
       icon: "🕌",
       category: "prayer",
-      isUnlocked: completedDeedsToday >= 5,
-      progress: `${Math.min(completedDeedsToday, 5)} / 5 صلوات`,
+      isUnlocked: onTimePrayersToday >= 5,
+      progress: `${onTimePrayersToday} / 5 صلوات`,
       hadith: "«أولُ ما يُحاسَبُ به العبدُ يومَ القيامةِ الصلاةُ»",
     },
   ];

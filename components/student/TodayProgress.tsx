@@ -1,5 +1,6 @@
 "use client";
 
+import { formatDay, todayDateString } from "@/lib/dates";
 import { Flame, CheckCircle, Award } from "lucide-react";
 
 interface TodayProgressProps {
@@ -28,7 +29,7 @@ export function TodayProgress({
           <div className="inline-flex items-center gap-2 bg-emerald-700/50 border border-emerald-500/30 px-3 py-1 rounded-full text-xs font-medium text-emerald-200 mb-3">
             <span>ورد اليوم المبارك</span>
             <span>•</span>
-            <span>{new Date().toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" })}</span>
+            <span>{formatDay(todayDateString(), { weekday: "long", day: "numeric", month: "long" })}</span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2 tracking-tight">

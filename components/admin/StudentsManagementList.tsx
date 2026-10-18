@@ -41,6 +41,7 @@ export function StudentsManagementList({
   const [selectedStudent, setSelectedStudent] = useState<StudentItem | null>(null);
   const [isPending, startTransition] = useTransition();
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const INITIAL_LIMIT = 5;
   const [limit, setLimit] = useState(INITIAL_LIMIT);
   const visibleStudents = students.slice(0, limit);
@@ -48,8 +49,13 @@ export function StudentsManagementList({
   const handleReassign = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    setErrorMessage(null);
     startTransition(async () => {
-      await reassignStudentSheikhAction(formData);
+      const res = await reassignStudentSheikhAction(formData);
+      if (res.error) {
+        setErrorMessage(res.error);
+        return;
+      }
       setSuccessMsg("تم نقل وتعيين الطالب للشيخ المشرف بنجاح");
       setTimeout(() => {
         setSuccessMsg(null);
@@ -129,7 +135,7 @@ export function StudentsManagementList({
 
               <button
                 type="button"
-                onClick={() => setSelectedStudent(student)}
+                onClick={() => { setErrorMessage(null); setSelectedStudent(student); }}
                 className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-xs shrink-0 cursor-pointer"
               >
                 <ArrowRightLeft className="w-3.5 h-3.5" />
@@ -198,6 +204,11 @@ export function StudentsManagementList({
               </div>
             ) : (
               <form onSubmit={handleReassign} className="space-y-4 text-xs">
+              {errorMessage && (
+                <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+                  {errorMessage}
+                </div>
+              )}
                 <input type="hidden" name="studentId" value={selectedStudent.id} />
 
                 <div>

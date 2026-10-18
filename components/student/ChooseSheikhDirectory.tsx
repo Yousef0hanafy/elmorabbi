@@ -19,6 +19,7 @@ export function ChooseSheikhDirectory({
   const [searchTerm, setSearchTerm] = useState("");
   const [isPending, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const INITIAL_LIMIT = 4;
   const [limit, setLimit] = useState(INITIAL_LIMIT);
@@ -35,8 +36,13 @@ export function ChooseSheikhDirectory({
 
   const handleSelectSheikh = (sheikhId: string) => {
     setSelectedId(sheikhId);
+    setErrorMessage(null);
     startTransition(async () => {
-      await chooseSheikhAction(sheikhId);
+      const res = await chooseSheikhAction(sheikhId);
+      if (res.error) {
+        setErrorMessage(res.error);
+        return;
+      }
       router.push("/student");
       router.refresh();
     });
@@ -54,6 +60,12 @@ export function ChooseSheikhDirectory({
 
   return (
     <div className="space-y-4">
+      {errorMessage && (
+        <div role="alert" className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs font-medium">
+          {errorMessage}
+        </div>
+      )}
+
       {/* Search Bar */}
       {sheikhs.length > 2 && (
         <div className="relative">

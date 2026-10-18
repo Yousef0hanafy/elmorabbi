@@ -12,10 +12,16 @@ export function DailyReflection({ initialNotes = "" }: DailyReflectionProps) {
   const [notes, setNotes] = useState(initialNotes);
   const [isSaved, setIsSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleSave = () => {
+    setSaveError(null);
     startTransition(async () => {
-      await updateNotesAction(notes);
+      const res = await updateNotesAction(notes);
+      if (res.error) {
+        setSaveError(res.error);
+        return;
+      }
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 3000);
     });
@@ -71,6 +77,11 @@ export function DailyReflection({ initialNotes = "" }: DailyReflectionProps) {
           </button>
         </div>
       </div>
+      {saveError && (
+        <p role="alert" className="mt-3 text-xs font-medium text-rose-700">
+          {saveError}
+        </p>
+      )}
     </div>
   );
 }

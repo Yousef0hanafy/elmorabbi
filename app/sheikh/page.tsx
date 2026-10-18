@@ -1,3 +1,4 @@
+import { formatDay, todayDateString } from "@/lib/dates";
 import { Header } from "@/components/shared/Header";
 import { BottomNav } from "@/components/shared/BottomNav";
 import { SheikhStats } from "@/components/sheikh/SheikhStats";
@@ -70,7 +71,7 @@ export default async function SheikhDashboardPage() {
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900 leading-tight">
-                متابعة طلاب الحلقة لليوم ({new Date().toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" })})
+                متابعة طلاب الحلقة لليوم ({formatDay(todayDateString(), { weekday: "long", day: "numeric", month: "long" })})
               </h2>
               <p className="text-xs text-slate-500">
                 متابعة أداء الصلوات، الأوراد، الصيام، وملاحظات الطلاب اليومية

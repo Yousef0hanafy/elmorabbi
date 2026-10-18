@@ -23,10 +23,12 @@ interface PendingSheikhsListProps {
 export function PendingSheikhsList({ pendingSheikhs }: PendingSheikhsListProps) {
   const [isPending, startTransition] = useTransition();
   const [actionMessage, setActionMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const handleApprove = (sheikh: UserRecord) => {
     startTransition(async () => {
       const res = await approveSheikhAction(sheikh.id);
+      setErrorMessage(res.error ?? null);
       if (res.success) {
         setActionMessage(`تم اعتماد الشيخ ${sheikh.name} بنجاح! حسابه الآن نشط وحلقته متاحة للطلاب.`);
         try {
@@ -49,6 +51,7 @@ export function PendingSheikhsList({ pendingSheikhs }: PendingSheikhsListProps) 
 
     startTransition(async () => {
       const res = await rejectSheikhAction(sheikh.id);
+      setErrorMessage(res.error ?? null);
       if (res.success) {
         setActionMessage(`تم رفض طلب انضمام الشيخ ${sheikh.name}.`);
         setTimeout(() => setActionMessage(null), 4000);
@@ -107,6 +110,12 @@ export function PendingSheikhsList({ pendingSheikhs }: PendingSheikhsListProps) 
       </div>
 
       {/* Action Notification */}
+      {errorMessage && (
+        <div role="alert" className="mb-4 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-800 font-semibold">
+          {errorMessage}
+        </div>
+      )}
+
       {actionMessage && (
         <div className="mb-4 p-3 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center gap-2.5 text-xs text-emerald-900 font-semibold animate-fadeIn">
           <Sparkles className="w-4 h-4 text-emerald-600 shrink-0" />

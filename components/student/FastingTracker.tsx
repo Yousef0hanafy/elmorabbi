@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { Moon, Sparkles, CheckCircle2, ShieldCheck, Flame } from "lucide-react";
 import { updateFastingAction } from "@/lib/actions/log-actions";
+import { todayDateString, weekdayOf } from "@/lib/dates";
 import confetti from "canvas-confetti";
 
 interface FastingTrackerProps {
@@ -12,14 +13,17 @@ interface FastingTrackerProps {
 export function FastingTracker({ initialFasting }: FastingTrackerProps) {
   const [fasting, setFasting] = useState<"none" | "voluntary" | "fard">(initialFasting || "none");
   const [isPending, startTransition] = useTransition();
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Check if today is Monday (1) or Thursday (4)
-  const todayDay = new Date().getDay();
+  const todayDay = weekdayOf(todayDateString());
   const isSunnahDay = todayDay === 1 || todayDay === 4;
 
   const handleSelect = (status: "none" | "voluntary" | "fard") => {
     if (status === fasting) return;
+    const previous = fasting;
     setFasting(status);
+    setSaveError(null);
 
     if (status === "voluntary" || status === "fard") {
       try {
@@ -35,7 +39,11 @@ export function FastingTracker({ initialFasting }: FastingTrackerProps) {
     }
 
     startTransition(async () => {
-      await updateFastingAction(status);
+      const res = await updateFastingAction(status);
+      if (res.error) {
+        setFasting(previous);
+        setSaveError(res.error);
+      }
     });
   };
 
@@ -161,6 +169,11 @@ export function FastingTracker({ initialFasting }: FastingTrackerProps) {
           قال ﷺ: <span className="font-semibold">«مَن صام يومًا في سبيل الله، باعَدَ الله وجهه عن النار سبعين خريفًا»</span>
         </p>
       </div>
+      {saveError && (
+        <p role="alert" className="mt-3 text-xs font-medium text-rose-700">
+          {saveError}
+        </p>
+      )}
     </div>
   );
 }

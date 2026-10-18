@@ -9,6 +9,7 @@ interface InquiryItem {
   studentId: string;
   studentName: string;
   content: string;
+  category?: string;
   type: string;
   isRead: boolean;
   createdAt: string;
@@ -76,6 +77,11 @@ export function SheikhQuestionsFeed({ inquiries }: SheikhQuestionsFeedProps) {
                   <Clock className="w-3 h-3" />
                   {inq.createdAt}
                 </span>
+                {inq.category && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+                    {inq.category}
+                  </span>
+                )}
               </div>
 
               <p className="text-xs text-slate-700 leading-relaxed bg-white/90 p-3 rounded-xl border border-slate-100 font-quran">

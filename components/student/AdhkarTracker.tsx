@@ -13,39 +13,31 @@ interface AdhkarTrackerProps {
 export function AdhkarTracker({ initialMorning, initialEvening }: AdhkarTrackerProps) {
   const [morning, setMorning] = useState(initialMorning);
   const [evening, setEvening] = useState(initialEvening);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const [activeModal, setActiveModal] = useState<"morning" | "evening" | null>(null);
 
-  const handleToggleMorning = () => {
-    const next = !morning;
-    setMorning(next);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Optimistic update, rolled back if saving fails
+  const save = (type: "morning" | "evening", completed: boolean) => {
+    const setValue = type === "morning" ? setMorning : setEvening;
+    const previous = type === "morning" ? morning : evening;
+    setValue(completed);
+    setSaveError(null);
     startTransition(async () => {
-      await updateAdhkarAction("morning", next);
+      const res = await updateAdhkarAction(type, completed);
+      if (res.error) {
+        setValue(previous);
+        setSaveError(res.error);
+      }
     });
   };
 
-  const handleToggleEvening = () => {
-    const next = !evening;
-    setEvening(next);
-    startTransition(async () => {
-      await updateAdhkarAction("evening", next);
-    });
-  };
-
-  const handleCompleteMorningFromModal = () => {
-    setMorning(true);
-    startTransition(async () => {
-      await updateAdhkarAction("morning", true);
-    });
-  };
-
-  const handleCompleteEveningFromModal = () => {
-    setEvening(true);
-    startTransition(async () => {
-      await updateAdhkarAction("evening", true);
-    });
-  };
+  const handleToggleMorning = () => save("morning", !morning);
+  const handleToggleEvening = () => save("evening", !evening);
+  const handleCompleteMorningFromModal = () => save("morning", true);
+  const handleCompleteEveningFromModal = () => save("evening", true);
 
   return (
     <>
@@ -185,6 +177,11 @@ export function AdhkarTracker({ initialMorning, initialEvening }: AdhkarTrackerP
             </div>
           </div>
         </div>
+        {saveError && (
+          <p role="alert" className="mt-3 text-xs font-medium text-rose-700">
+            {saveError}
+          </p>
+        )}
       </div>
 
       {/* Adhkar interactive reading modal */}

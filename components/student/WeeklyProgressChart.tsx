@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { TrendingUp, Award, BookOpen, Flame, CheckCircle2 } from "lucide-react";
-import { DailyLogRecord } from "@/lib/data-service";
+import { TrendingUp, Award, Flame, CheckCircle2 } from "lucide-react";
+import type { DailyLogRecord } from "@/lib/data-service";
+import { formatDay, todayDateString } from "@/lib/dates";
+import { completionRate, countCompletedDeeds } from "@/lib/scoring";
 
 interface WeeklyProgressChartProps {
   history: DailyLogRecord[];
@@ -12,46 +14,19 @@ export function WeeklyProgressChart({ history }: WeeklyProgressChartProps) {
   const [selectedDay, setSelectedDay] = useState<DailyLogRecord | null>(null);
 
   // Compute stats across the available history
+  const today = todayDateString();
+  const dayData = history.map((log) => ({
+    log,
+    deeds: countCompletedDeeds(log),
+    percent: completionRate(log),
+    dayName: formatDay(log.date, { weekday: "short" }),
+    isToday: log.date === today,
+  }));
+
   const totalDays = history.length || 1;
-
-  let totalQuranPages = 0;
-  let fajrCongregationCount = 0;
-  let totalScorePercentageSum = 0;
-
-  const dayData = history.map((log) => {
-    let deeds = 0;
-    if (log.fajr === "congregation" || log.fajr === "ontime") deeds++;
-    if (log.dhuhr === "congregation" || log.dhuhr === "ontime") deeds++;
-    if (log.asr === "congregation" || log.asr === "ontime") deeds++;
-    if (log.maghrib === "congregation" || log.maghrib === "ontime") deeds++;
-    if (log.isha === "congregation" || log.isha === "ontime") deeds++;
-    if (log.quranRead) deeds++;
-    if (log.adhkarMorning) deeds++;
-    if (log.adhkarEvening) deeds++;
-
-    const percent = Math.round((deeds / 8) * 100);
-    totalScorePercentageSum += percent;
-
-    if (log.fajr === "congregation") {
-      fajrCongregationCount++;
-    }
-    totalQuranPages += log.quranPages || 0;
-
-    // Parse day name in Arabic
-    const d = new Date(log.date);
-    const dayName = d.toLocaleDateString("ar-EG", { weekday: "short" });
-    const isToday = log.date === new Date().toISOString().split("T")[0];
-
-    return {
-      log,
-      deeds,
-      percent,
-      dayName,
-      isToday,
-    };
-  });
-
-  const avgCompletion = Math.round(totalScorePercentageSum / totalDays);
+  const totalQuranPages = history.reduce((acc, log) => acc + (log.quranPages || 0), 0);
+  const fajrCongregationCount = history.filter((log) => log.fajr === "congregation").length;
+  const avgCompletion = Math.round(dayData.reduce((acc, d) => acc + d.percent, 0) / totalDays);
 
   return (
     <div className="bg-white rounded-3xl p-6 border border-emerald-900/10 shadow-sm relative overflow-hidden transition-all duration-300 hover:shadow-md">
