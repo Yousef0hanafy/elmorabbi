@@ -1,5 +1,7 @@
 # RBAC & Security
 
+> **ملحوظة:** متطبّق في طبقة التطبيق (`lib/auth.ts` و`lib/actions/*`) مش عن طريق RLS. التفاصيل في `docs/discovery/00-current-state-audit.md`.
+
 ## Role-Based Access Control (RBAC)
 
 1. **Student**

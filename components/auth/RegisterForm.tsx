@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { MIN_PASSWORD_LENGTH } from "@/lib/validation";
 import { registerAction } from "@/lib/actions/auth-actions";
 import {
   GraduationCap,
@@ -13,7 +14,6 @@ import {
   Lock,
   User,
   Phone,
-  Sparkles,
 } from "lucide-react";
 
 interface RegisterFormProps {
@@ -32,6 +32,12 @@ export function RegisterForm({
     errorMessage = "البريد الإلكتروني مسجل بالفعل لدينا. يرجى تسجيل الدخول أو استخدام بريد آخر.";
   } else if (errorCode === "missing_fields") {
     errorMessage = "يرجى ملء جميع الحقول الإلزامية.";
+  } else if (errorCode === "too_many_attempts") {
+    errorMessage = "محاولات تسجيل كثيرة من هذا الجهاز. يرجى المحاولة لاحقاً.";
+  } else if (errorCode === "server_error") {
+    errorMessage = "تعذر إنشاء الحساب حالياً، يرجى المحاولة مرة أخرى.";
+  } else if (errorCode === "weak_password") {
+    errorMessage = `كلمة المرور يجب ألا تقل عن ${MIN_PASSWORD_LENGTH} أحرف.`;
   }
 
   return (
@@ -63,7 +69,7 @@ export function RegisterForm({
 
       {/* Error Banner */}
       {errorMessage && (
-        <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-900 animate-fadeIn">
+        <div role="alert" className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-xs text-rose-900 animate-fadeIn">
           <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
           <p className="leading-relaxed font-medium">{errorMessage}</p>
         </div>
@@ -71,13 +77,14 @@ export function RegisterForm({
 
       {/* Role Selection */}
       <div className="mb-5">
-        <label className="text-xs font-bold text-slate-700 block mb-2">
+        <p id="role-picker-label" className="text-xs font-bold text-slate-700 block mb-2">
           أنا أنضم كـ:
-        </label>
-        <div className="grid grid-cols-2 gap-2 bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80">
+        </p>
+        <div role="group" aria-labelledby="role-picker-label" className="grid grid-cols-2 gap-2 bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80">
           <button
             type="button"
             onClick={() => setRole("student")}
+            aria-pressed={role === "student"}
             className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               role === "student"
                 ? "bg-white text-emerald-800 shadow-sm border border-emerald-200"
@@ -91,6 +98,7 @@ export function RegisterForm({
           <button
             type="button"
             onClick={() => setRole("sheikh")}
+            aria-pressed={role === "sheikh"}
             className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               role === "sheikh"
                 ? "bg-white text-amber-900 shadow-sm border border-amber-200"
@@ -118,7 +126,7 @@ export function RegisterForm({
         <input type="hidden" name="role" value={role} />
 
         <div>
-          <label className="text-xs font-semibold text-slate-700 block mb-1">
+          <label htmlFor="registerform-name" className="text-xs font-semibold text-slate-700 block mb-1">
             الاسم الكامل
           </label>
           <div className="relative">
@@ -126,7 +134,9 @@ export function RegisterForm({
               <User className="w-4 h-4" />
             </div>
             <input
+              id="registerform-name"
               name="name"
+              autoComplete="name"
               type="text"
               required
               placeholder={role === "student" ? "مثال: عبد الله بن محمد" : "مثال: الشيخ عبد الرحمن الأحمد"}
@@ -136,7 +146,7 @@ export function RegisterForm({
         </div>
 
         <div>
-          <label className="text-xs font-semibold text-slate-700 block mb-1">
+          <label htmlFor="registerform-email" className="text-xs font-semibold text-slate-700 block mb-1">
             البريد الإلكتروني
           </label>
           <div className="relative">
@@ -144,7 +154,9 @@ export function RegisterForm({
               <Mail className="w-4 h-4" />
             </div>
             <input
+              id="registerform-email"
               name="email"
+              autoComplete="email"
               type="email"
               required
               placeholder="name@example.com"
@@ -154,7 +166,7 @@ export function RegisterForm({
         </div>
 
         <div>
-          <label className="text-xs font-semibold text-slate-700 block mb-1">
+          <label htmlFor="registerform-phone" className="text-xs font-semibold text-slate-700 block mb-1">
             رقم الجوال (اختياري)
           </label>
           <div className="relative">
@@ -162,7 +174,9 @@ export function RegisterForm({
               <Phone className="w-4 h-4" />
             </div>
             <input
+              id="registerform-phone"
               name="phone"
+              autoComplete="tel"
               type="tel"
               placeholder="+2011x xxx xxxx"
               className="w-full text-xs sm:text-sm rounded-xl border border-slate-200 py-3 pr-10 pl-3 bg-slate-50/70 text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
@@ -171,7 +185,7 @@ export function RegisterForm({
         </div>
 
         <div>
-          <label className="text-xs font-semibold text-slate-700 block mb-1">
+          <label htmlFor="registerform-password" className="text-xs font-semibold text-slate-700 block mb-1">
             كلمة المرور
           </label>
           <div className="relative">
@@ -179,9 +193,12 @@ export function RegisterForm({
               <Lock className="w-4 h-4" />
             </div>
             <input
+              id="registerform-password"
               name="password"
               type="password"
               required
+              minLength={MIN_PASSWORD_LENGTH}
+              autoComplete="new-password"
               placeholder="••••••••"
               className="w-full text-xs sm:text-sm rounded-xl border border-slate-200 py-3 pr-10 pl-3 bg-slate-50/70 text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
             />
@@ -192,10 +209,11 @@ export function RegisterForm({
         {role === "sheikh" && (
           <div className="space-y-3.5 pt-2 border-t border-slate-100 animate-fadeIn">
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
+              <label htmlFor="registerform-title" className="text-xs font-semibold text-slate-700 block mb-1">
                 اللقب العلمي أو التخصص (اختياري)
               </label>
               <input
+                id="registerform-title"
                 name="title"
                 type="text"
                 placeholder="مثال: مقرئ القراءات العشر ومدرس الحديث"
@@ -204,10 +222,11 @@ export function RegisterForm({
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
+              <label htmlFor="registerform-halaqahName" className="text-xs font-semibold text-slate-700 block mb-1">
                 اسم الحلقة المقترحة (اختياري)
               </label>
               <input
+                id="registerform-halaqahName"
                 name="halaqahName"
                 type="text"
                 placeholder="مثال: حلقة الفرقان والهدى"
@@ -216,10 +235,11 @@ export function RegisterForm({
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1">
+              <label htmlFor="registerform-bio" className="text-xs font-semibold text-slate-700 block mb-1">
                 نبذة تعريفية مختصرة للطلاب (اختياري)
               </label>
               <textarea
+                id="registerform-bio"
                 name="bio"
                 rows={2}
                 placeholder="اكتب نبذة عن مسيرتك ومنهجك في مرافقة الطلاب ومتابعتهم..."

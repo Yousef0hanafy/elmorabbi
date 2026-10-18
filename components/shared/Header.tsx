@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getSession } from "@/lib/auth";
 import { Logo } from "@/components/shared/Logo";
-import { BookOpen, Sparkles, LogOut, Compass, Users, CheckCircle2, MessageCircleQuestion } from "lucide-react";
+import { BookOpen, LogOut, Compass, Users, CheckCircle2, MessageCircleQuestion, TrendingUp } from "lucide-react";
 import { logoutAction } from "@/lib/actions/auth-actions";
 
 export async function Header() {
@@ -29,17 +29,18 @@ export async function Header() {
                     ورد اليوم
                   </Link>
                   <Link
+                    href="/student/progress"
+                    className="px-3 py-1.5 rounded-lg hover:bg-emerald-800/60 transition-colors flex items-center gap-1.5"
+                  >
+                    <TrendingUp className="w-4 h-4 text-emerald-300" />
+                    تقدّمي
+                  </Link>
+                  <Link
                     href="/student/sheikh"
                     className="px-3 py-1.5 rounded-lg hover:bg-emerald-800/60 transition-colors flex items-center gap-1.5"
                   >
                     <Compass className="w-4 h-4 text-amber-300" />
                     معلمي والتوجيهات
-                  </Link>
-                  <Link
-                    href="/student/choose-sheikh"
-                    className="px-3 py-1.5 rounded-lg hover:bg-emerald-800/60 transition-colors flex items-center gap-1.5 text-xs text-emerald-300/80"
-                  >
-                    تغيير الشيخ
                   </Link>
                 </>
               )}
@@ -108,6 +109,7 @@ export async function Header() {
                   <button
                     type="submit"
                     title="تسجيل الخروج"
+                    aria-label="تسجيل الخروج"
                     className="p-2 text-emerald-300 hover:text-white hover:bg-emerald-800/50 rounded-lg transition-colors"
                   >
                     <LogOut className="w-4 h-4" />

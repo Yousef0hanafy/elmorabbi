@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { Moon, Sparkles, CheckCircle2, ShieldCheck, Flame } from "lucide-react";
 import { updateFastingAction } from "@/lib/actions/log-actions";
-import confetti from "canvas-confetti";
+import { todayDateString, weekdayOf } from "@/lib/dates";
+import { celebrate } from "@/lib/celebrate";
 
 interface FastingTrackerProps {
   initialFasting: "none" | "voluntary" | "fard";
@@ -12,30 +14,28 @@ interface FastingTrackerProps {
 export function FastingTracker({ initialFasting }: FastingTrackerProps) {
   const [fasting, setFasting] = useState<"none" | "voluntary" | "fard">(initialFasting || "none");
   const [isPending, startTransition] = useTransition();
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   // Check if today is Monday (1) or Thursday (4)
-  const todayDay = new Date().getDay();
+  const todayDay = weekdayOf(todayDateString());
   const isSunnahDay = todayDay === 1 || todayDay === 4;
 
   const handleSelect = (status: "none" | "voluntary" | "fard") => {
     if (status === fasting) return;
+    const previous = fasting;
     setFasting(status);
+    setSaveError(null);
 
     if (status === "voluntary" || status === "fard") {
-      try {
-        confetti({
-          particleCount: 40,
-          spread: 50,
-          origin: { y: 0.75 },
-          colors: ["#10b981", "#047857", "#fbbf24"],
-        });
-      } catch (e) {
-        // ignore
-      }
+      celebrate();
     }
 
     startTransition(async () => {
-      await updateFastingAction(status);
+      const res = await updateFastingAction(status);
+      if (res.error) {
+        setFasting(previous);
+        setSaveError(res.error);
+      }
     });
   };
 
@@ -85,6 +85,7 @@ export function FastingTracker({ initialFasting }: FastingTrackerProps) {
         <button
           type="button"
           onClick={() => handleSelect("voluntary")}
+          aria-pressed={fasting === "voluntary"}
           disabled={isPending}
           className={`relative flex flex-col items-center justify-center py-3.5 px-2 rounded-2xl text-center font-bold text-xs transition-all duration-200 border ${
             fasting === "voluntary"
@@ -110,6 +111,7 @@ export function FastingTracker({ initialFasting }: FastingTrackerProps) {
         <button
           type="button"
           onClick={() => handleSelect("fard")}
+          aria-pressed={fasting === "fard"}
           disabled={isPending}
           className={`relative flex flex-col items-center justify-center py-3.5 px-2 rounded-2xl text-center font-bold text-xs transition-all duration-200 border ${
             fasting === "fard"
@@ -135,6 +137,7 @@ export function FastingTracker({ initialFasting }: FastingTrackerProps) {
         <button
           type="button"
           onClick={() => handleSelect("none")}
+          aria-pressed={fasting === "none"}
           disabled={isPending}
           className={`relative flex flex-col items-center justify-center py-3.5 px-2 rounded-2xl text-center font-bold text-xs transition-all duration-200 border ${
             fasting === "none"
@@ -161,6 +164,7 @@ export function FastingTracker({ initialFasting }: FastingTrackerProps) {
           قال ﷺ: <span className="font-semibold">«مَن صام يومًا في سبيل الله، باعَدَ الله وجهه عن النار سبعين خريفًا»</span>
         </p>
       </div>
+      <ErrorAlert message={saveError} className="mt-3" />
     </div>
   );
 }

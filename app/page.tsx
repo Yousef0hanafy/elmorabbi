@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Header } from "@/components/shared/Header";
 import { getSession } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import {
   BookOpen,
   CheckCircle2,
@@ -10,15 +11,28 @@ import {
   ArrowLeft,
   Sparkles,
   Flame,
-  ShieldCheck,
   HeartHandshake,
-  CalendarCheck,
   Clock,
-  Award,
 } from "lucide-react";
 
-export default async function HomePage() {
+interface HomePageProps {
+  searchParams: Promise<{ source?: string }>;
+}
+
+export default async function HomePage({ searchParams }: HomePageProps) {
   const session = await getSession();
+  const primary = !session
+    ? { href: "/register", label: "ابدأ رحلتك الآن" }
+    : session.role === "sheikh"
+    ? { href: "/sheikh", label: "متابعة طلاب حلقتي" }
+    : session.role === "admin"
+    ? { href: "/admin", label: "لوحة الإدارة" }
+    : { href: "/student", label: "تابع وردك اليوم" };
+
+  // The installed app opens at /?source=pwa: members skip the landing page
+  if (session && (await searchParams).source === "pwa") {
+    redirect(primary.href);
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9]">
@@ -59,23 +73,25 @@ export default async function HomePage() {
             «أَحَبُّ الأَعْمَالِ إِلَى اللهِ أَدْوَمُهَا وَإِنْ قَلَّ». تابع صلواتك في أوقاتها، وأذكار الصباح والمساء، وورد القرآن، وتلقَّ التوجيه الأخوي المباشر من شيخك ليُعينك على الثبات.
           </p>
 
-          {/* Student-First Primary Action */}
+          {/* Primary actions adapt to the visitor: continue for members, sign up for guests */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
-              href="/student"
-              className="w-full sm:w-auto px-8 py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-base shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 transition-all hover:scale-102"
+              href={primary.href}
+              className="w-full sm:w-auto min-h-12 px-8 py-4 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-base shadow-xl shadow-amber-500/25 flex items-center justify-center gap-2 transition-all"
             >
-              <span>ابدأ وردك اليوم</span>
-              <ArrowLeft className="w-5 h-5" />
+              <span>{primary.label}</span>
+              <ArrowLeft className="w-5 h-5" aria-hidden="true" />
             </Link>
 
-            <Link
-              href="/student/choose-sheikh"
-              className="w-full sm:w-auto px-6 py-4 rounded-2xl bg-emerald-800/60 hover:bg-emerald-700/80 text-emerald-100 font-semibold text-sm border border-emerald-500/30 shadow-md flex items-center justify-center gap-2 transition-all"
-            >
-              <Compass className="w-4 h-4 text-amber-300" />
-              <span>استكشف حلقات المشايخ</span>
-            </Link>
+            {!session && (
+              <Link
+                href="/login"
+                className="w-full sm:w-auto min-h-12 px-6 py-4 rounded-2xl bg-emerald-800/60 hover:bg-emerald-700/80 text-emerald-100 font-semibold text-sm border border-emerald-500/30 shadow-md flex items-center justify-center gap-2 transition-all"
+              >
+                <Compass className="w-4 h-4 text-amber-300" aria-hidden="true" />
+                <span>لديّ حساب بالفعل</span>
+              </Link>
+            )}
           </div>
         </div>
       </section>

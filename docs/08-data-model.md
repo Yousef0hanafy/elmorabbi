@@ -1,5 +1,7 @@
 # Data Model (Core Entities)
 
+> **ملحوظة:** ده نموذج البيانات المقترح في البداية. النموذج المنفّذ فعلاً موجود في `db/schema.ts`.
+
 *Assuming PostgreSQL via Supabase*
 
 **1. `users`**

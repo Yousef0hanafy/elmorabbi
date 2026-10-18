@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { updateNotesAction } from "@/lib/actions/log-actions";
 import { MessageSquare, Send, Check } from "lucide-react";
 
@@ -12,10 +13,16 @@ export function DailyReflection({ initialNotes = "" }: DailyReflectionProps) {
   const [notes, setNotes] = useState(initialNotes);
   const [isSaved, setIsSaved] = useState(false);
   const [isPending, startTransition] = useTransition();
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleSave = () => {
+    setSaveError(null);
     startTransition(async () => {
-      await updateNotesAction(notes);
+      const res = await updateNotesAction(notes);
+      if (res.error) {
+        setSaveError(res.error);
+        return;
+      }
       setIsSaved(true);
       setTimeout(() => setIsSaved(false), 3000);
     });
@@ -71,6 +78,7 @@ export function DailyReflection({ initialNotes = "" }: DailyReflectionProps) {
           </button>
         </div>
       </div>
+      <ErrorAlert message={saveError} className="mt-3" />
     </div>
   );
 }

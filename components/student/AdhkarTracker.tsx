@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
 import { updateAdhkarAction } from "@/lib/actions/log-actions";
 import { Sun, Moon, Check, ShieldCheck, BookOpen } from "lucide-react";
 import { AdhkarModal } from "./AdhkarModal";
@@ -13,39 +14,31 @@ interface AdhkarTrackerProps {
 export function AdhkarTracker({ initialMorning, initialEvening }: AdhkarTrackerProps) {
   const [morning, setMorning] = useState(initialMorning);
   const [evening, setEvening] = useState(initialEvening);
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const [activeModal, setActiveModal] = useState<"morning" | "evening" | null>(null);
 
-  const handleToggleMorning = () => {
-    const next = !morning;
-    setMorning(next);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  // Optimistic update, rolled back if saving fails
+  const save = (type: "morning" | "evening", completed: boolean) => {
+    const setValue = type === "morning" ? setMorning : setEvening;
+    const previous = type === "morning" ? morning : evening;
+    setValue(completed);
+    setSaveError(null);
     startTransition(async () => {
-      await updateAdhkarAction("morning", next);
+      const res = await updateAdhkarAction(type, completed);
+      if (res.error) {
+        setValue(previous);
+        setSaveError(res.error);
+      }
     });
   };
 
-  const handleToggleEvening = () => {
-    const next = !evening;
-    setEvening(next);
-    startTransition(async () => {
-      await updateAdhkarAction("evening", next);
-    });
-  };
-
-  const handleCompleteMorningFromModal = () => {
-    setMorning(true);
-    startTransition(async () => {
-      await updateAdhkarAction("morning", true);
-    });
-  };
-
-  const handleCompleteEveningFromModal = () => {
-    setEvening(true);
-    startTransition(async () => {
-      await updateAdhkarAction("evening", true);
-    });
-  };
+  const handleToggleMorning = () => save("morning", !morning);
+  const handleToggleEvening = () => save("evening", !evening);
+  const handleCompleteMorningFromModal = () => save("morning", true);
+  const handleCompleteEveningFromModal = () => save("evening", true);
 
   return (
     <>
@@ -97,7 +90,9 @@ export function AdhkarTracker({ initialMorning, initialEvening }: AdhkarTrackerP
                 type="button"
                 onClick={handleToggleMorning}
                 title="تحديد الإنجاز السريع"
-                className={`w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${
+                aria-label="تم قراءة أذكار الصباح"
+                aria-pressed={morning}
+                className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-colors ${
                   morning
                     ? "bg-amber-600 border-amber-600 text-white"
                     : "border-slate-300 bg-white hover:border-slate-400"
@@ -157,7 +152,9 @@ export function AdhkarTracker({ initialMorning, initialEvening }: AdhkarTrackerP
                 type="button"
                 onClick={handleToggleEvening}
                 title="تحديد الإنجاز السريع"
-                className={`w-6 h-6 rounded-md border flex items-center justify-center transition-colors ${
+                aria-label="تم قراءة أذكار المساء"
+                aria-pressed={evening}
+                className={`w-9 h-9 rounded-lg border flex items-center justify-center transition-colors ${
                   evening
                     ? "bg-indigo-600 border-indigo-600 text-white"
                     : "border-slate-300 bg-white hover:border-slate-400"
@@ -185,6 +182,7 @@ export function AdhkarTracker({ initialMorning, initialEvening }: AdhkarTrackerP
             </div>
           </div>
         </div>
+        <ErrorAlert message={saveError} className="mt-3" />
       </div>
 
       {/* Adhkar interactive reading modal */}

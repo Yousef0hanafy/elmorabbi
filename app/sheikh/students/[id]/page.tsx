@@ -1,21 +1,17 @@
 import { Header } from "@/components/shared/Header";
-import { BottomNav } from "@/components/shared/BottomNav";
-import { getSession } from "@/lib/auth";
+import { SheikhBottomNav } from "@/components/shared/RoleBottomNav";
+import { requireRole } from "@/lib/auth";
 import { dataService } from "@/lib/data-service";
 import { sendFeedbackAction } from "@/lib/actions/sheikh-actions";
+import { FEEDBACK_TYPES, isOneOf } from "@/lib/validation";
+import { formatDay } from "@/lib/dates";
+import { PRAYERS, PRAYER_STATUS_BADGE, PRAYER_STATUS_LABELS } from "@/lib/labels";
 import { StudentFeedbackHistory } from "@/components/sheikh/StudentFeedbackHistory";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
   ArrowRight,
-  User,
   Flame,
-  CheckCircle2,
-  Clock,
-  XCircle,
-  Users,
-  BookOpen,
-  ShieldCheck,
   MessageSquareQuote,
   Send,
   Phone,
@@ -28,11 +24,11 @@ interface StudentDetailPageProps {
 
 export default async function StudentDetailPage({ params }: StudentDetailPageProps) {
   const { id } = await params;
-  const session = await getSession();
+  const session = await requireRole("sheikh");
 
-  // Strict Authentication: Only Sheikhs can view this page
-  if (!session || session.role !== "sheikh") {
-    redirect("/login?role=sheikh");
+  // A sheikh may only view students enrolled in their own halaqah
+  if (!(await dataService.isStudentOfSheikh(id, session.id))) {
+    notFound();
   }
 
   const student = await dataService.getUserById(id);
@@ -49,25 +45,13 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
   async function handleSendFeedback(formData: FormData) {
     "use server";
     const content = formData.get("content") as string;
-    const type = (formData.get("type") as any) || "advice";
+    const rawType = formData.get("type");
+    const type = isOneOf(FEEDBACK_TYPES, rawType) ? rawType : "advice";
     if (content) {
       await sendFeedbackAction(id, content, type);
       redirect(`/sheikh/students/${id}`);
     }
   }
-
-  const getPrayerBadge = (status?: string) => {
-    switch (status) {
-      case "congregation":
-        return { label: "جماعة", bg: "bg-emerald-100 text-emerald-800" };
-      case "ontime":
-        return { label: "في وقتها", bg: "bg-teal-100 text-teal-800" };
-      case "late":
-        return { label: "قضاء", bg: "bg-amber-100 text-amber-800" };
-      default:
-        return { label: "فائتة", bg: "bg-rose-100 text-rose-800" };
-    }
-  };
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9] pb-24 md:pb-12">
@@ -130,27 +114,19 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
         {/* Today's Detailed Record */}
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
           <h2 className="text-base font-bold text-slate-900 mb-4">
-            سجل اليوم ({todayLog.date})
+            سجل اليوم ({formatDay(todayLog.date, { weekday: "long", day: "numeric", month: "long" })})
           </h2>
 
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
-            {(
-              [
-                { key: "fajr", name: "الفجر" },
-                { key: "dhuhr", name: "الظهر" },
-                { key: "asr", name: "العصر" },
-                { key: "maghrib", name: "المغرب" },
-                { key: "isha", name: "العشاء" },
-              ] as const
-            ).map((p) => {
-              const badge = getPrayerBadge(todayLog[p.key]);
+            {PRAYERS.map((p) => {
+              const status = todayLog[p.key];
               return (
                 <div
                   key={p.key}
-                  className={`p-3 rounded-xl border text-center ${badge.bg}`}
+                  className={`p-3 rounded-xl border text-center ${PRAYER_STATUS_BADGE[status]}`}
                 >
                   <span className="text-xs font-semibold block">{p.name}</span>
-                  <span className="text-sm font-bold block mt-0.5">{badge.label}</span>
+                  <span className="text-sm font-bold block mt-0.5">{PRAYER_STATUS_LABELS[status]}</span>
                 </div>
               );
             })}
@@ -217,31 +193,20 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {history.map((h) => {
-                  const fajrBadge = getPrayerBadge(h.fajr);
                   const isFasting = h.fasting && h.fasting !== "none";
 
                   return (
                     <tr key={h.id || h.date} className="hover:bg-slate-50/60 transition-colors">
                       <td className="py-3 pr-2 font-bold text-slate-800 whitespace-nowrap">
-                        {h.date}
+                        {formatDay(h.date, { weekday: "short", day: "numeric", month: "short" })}
                       </td>
-                      <td className="py-3">
-                        <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] ${fajrBadge.bg}`}>
-                          {fajrBadge.label}
-                        </span>
-                      </td>
-                      <td className="py-3 text-slate-600">
-                        {h.dhuhr === "congregation" ? "جماعة" : h.dhuhr === "ontime" ? "وقتها" : "قضاء/فائتة"}
-                      </td>
-                      <td className="py-3 text-slate-600">
-                        {h.asr === "congregation" ? "جماعة" : h.asr === "ontime" ? "وقتها" : "قضاء/فائتة"}
-                      </td>
-                      <td className="py-3 text-slate-600">
-                        {h.maghrib === "congregation" ? "جماعة" : h.maghrib === "ontime" ? "وقتها" : "قضاء/فائتة"}
-                      </td>
-                      <td className="py-3 text-slate-600">
-                        {h.isha === "congregation" ? "جماعة" : h.isha === "ontime" ? "وقتها" : "قضاء/فائتة"}
-                      </td>
+                      {PRAYERS.map((p) => (
+                        <td key={p.key} className="py-3">
+                          <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] whitespace-nowrap ${PRAYER_STATUS_BADGE[h[p.key]]}`}>
+                            {PRAYER_STATUS_LABELS[h[p.key]]}
+                          </span>
+                        </td>
+                      ))}
                       <td className="py-3 font-medium text-slate-700 whitespace-nowrap">
                         {h.quranRead ? `${h.quranPages} ص` : "—"}
                       </td>
@@ -282,10 +247,11 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
 
           <form action={handleSendFeedback} className="space-y-4">
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+              <label htmlFor="page-type" className="text-xs font-semibold text-slate-700 block mb-1.5">
                 نوع التوجيه:
               </label>
               <select
+                id="page-type"
                 name="type"
                 className="text-xs rounded-xl border border-slate-200 p-2.5 bg-slate-50 text-slate-800 focus:outline-hidden focus:border-amber-500"
               >
@@ -297,10 +263,11 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-slate-700 block mb-1.5">
+              <label htmlFor="page-content" className="text-xs font-semibold text-slate-700 block mb-1.5">
                 نص التوجيه:
               </label>
               <textarea
+                id="page-content"
                 name="content"
                 rows={3}
                 required
@@ -323,7 +290,7 @@ export default async function StudentDetailPage({ params }: StudentDetailPagePro
         <StudentFeedbackHistory feedbacks={feedbacks} />
       </main>
 
-      <BottomNav role="sheikh" />
+      <SheikhBottomNav sheikhId={session.id} />
     </div>
   );
 }

@@ -1,53 +1,33 @@
 import { Header } from "@/components/shared/Header";
-import { BottomNav } from "@/components/shared/BottomNav";
+import { StudentBottomNav } from "@/components/shared/RoleBottomNav";
 import { TodayProgress } from "@/components/student/TodayProgress";
 import { PrayerTracker } from "@/components/student/PrayerTracker";
 import { QuranTracker } from "@/components/student/QuranTracker";
 import { AdhkarTracker } from "@/components/student/AdhkarTracker";
 import { FastingTracker } from "@/components/student/FastingTracker";
-import { WeeklyProgressChart } from "@/components/student/WeeklyProgressChart";
-import { BadgesSection } from "@/components/student/BadgesSection";
-import { HalaqahLeaderboard } from "@/components/student/HalaqahLeaderboard";
 import { DailyReflection } from "@/components/student/DailyReflection";
-import { SheikhFeedbackFeed } from "@/components/student/SheikhFeedbackFeed";
-import { getSession } from "@/lib/auth";
+import { LatestGuidance } from "@/components/student/LatestGuidance";
+import { requireRole } from "@/lib/auth";
+import { countCompletedDeeds, TOTAL_DAILY_DEEDS } from "@/lib/scoring";
 import { dataService } from "@/lib/data-service";
-import { redirect } from "next/navigation";
 import Link from "next/link";
 import { AlertCircle } from "lucide-react";
 
 export default async function StudentDashboardPage() {
-  const session = await getSession();
-  if (!session || session.role !== "student") {
-    redirect("/login?role=student");
-  }
+  const session = await requireRole("student");
 
   const studentId = session.id;
   const studentName = session.name;
 
-  const profile = await dataService.getStudentProfile(studentId);
-  const todayLog = await dataService.getTodayLog(studentId);
-  const feedbacks = await dataService.getFeedbackForStudent(studentId);
-  const historyLogs = await dataService.getStudentHistory(studentId, 7);
+  const [profile, todayLog, feedbacks] = await Promise.all([
+    dataService.getStudentProfile(studentId),
+    dataService.getTodayLog(studentId),
+    dataService.getFeedbackForStudent(studentId),
+  ]);
 
-  const sheikh = profile?.sheikhId
-    ? await dataService.getUserById(profile.sheikhId)
-    : null;
-
-  const peers = profile?.sheikhId
-    ? await dataService.getStudentsForSheikh(profile.sheikhId)
-    : [];
-
-  // Compute completed deeds
-  let completedDeeds = 0;
-  if (todayLog.fajr === "congregation" || todayLog.fajr === "ontime") completedDeeds++;
-  if (todayLog.dhuhr === "congregation" || todayLog.dhuhr === "ontime") completedDeeds++;
-  if (todayLog.asr === "congregation" || todayLog.asr === "ontime") completedDeeds++;
-  if (todayLog.maghrib === "congregation" || todayLog.maghrib === "ontime") completedDeeds++;
-  if (todayLog.isha === "congregation" || todayLog.isha === "ontime") completedDeeds++;
-  if (todayLog.quranRead) completedDeeds++;
-  if (todayLog.adhkarMorning) completedDeeds++;
-  if (todayLog.adhkarEvening) completedDeeds++;
+  const hasSheikh = Boolean(profile?.sheikhId);
+  const completedDeeds = countCompletedDeeds(todayLog);
+  const streakDays = profile?.streakDays ?? 0;
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9] pb-24 md:pb-12 font-sans" dir="rtl">
@@ -55,7 +35,7 @@ export default async function StudentDashboardPage() {
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
         {/* Sheikh Notice Banner if not yet assigned */}
-        {!sheikh && (
+        {!hasSheikh && (
           <div className="bg-amber-50 border border-amber-200 rounded-3xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs shadow-xs">
             <div className="flex items-center gap-2.5">
               <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
@@ -75,8 +55,8 @@ export default async function StudentDashboardPage() {
         {/* Hero & Daily Progress */}
         <TodayProgress
           completedDeeds={completedDeeds}
-          totalDeeds={8}
-          streakDays={profile?.streakDays || 14}
+          totalDeeds={TOTAL_DAILY_DEEDS}
+          streakDays={streakDays}
           studentName={studentName}
         />
 
@@ -95,38 +75,14 @@ export default async function StudentDashboardPage() {
           />
         </div>
 
-        {/* Fasting Tracker Full Width */}
         <FastingTracker initialFasting={todayLog.fasting} />
 
-        {/* Weekly Commitment Analytics */}
-        <WeeklyProgressChart history={historyLogs} />
-
-        {/* Gamification Badges Section */}
-        <BadgesSection
-          streakDays={profile?.streakDays || 14}
-          completedDeedsToday={completedDeeds}
-          fajrInCongregation={todayLog.fajr === "congregation"}
-          isFasting={todayLog.fasting !== "none"}
-        />
-
-        {/* Halaqah Leaderboard & Sheikh Feedbacks */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <HalaqahLeaderboard
-            peers={peers}
-            currentStudentId={studentId}
-            halaqahName={sheikh?.title || "المربي"}
-          />
-          <SheikhFeedbackFeed
-            feedbacks={feedbacks}
-            sheikhName={sheikh?.name}
-          />
-        </div>
-
-        {/* Daily Reflection & Notes */}
         <DailyReflection initialNotes={todayLog.notes || ""} />
+
+        {hasSheikh && <LatestGuidance latest={feedbacks[0]} total={feedbacks.length} />}
       </main>
 
-      <BottomNav role="student" />
+      <StudentBottomNav studentId={session.id} />
     </div>
   );
 }

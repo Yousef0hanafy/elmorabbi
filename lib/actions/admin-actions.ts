@@ -2,138 +2,201 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { setSession } from "@/lib/auth";
-import { dataService } from "@/lib/data-service";
+import { ENV_ADMIN_ID, requireRole, setSession } from "@/lib/auth";
+import { dataService, DuplicateEmailError } from "@/lib/data-service";
+import { hashPassword, verifyPassword } from "@/lib/password";
+import { isValidPassword, MIN_PASSWORD_LENGTH, SAVE_ERROR_MESSAGE } from "@/lib/validation";
+import { isLoginBlocked, recordFailedLogin } from "@/lib/rate-limit";
 
 export async function adminLoginAction(formData: FormData): Promise<void> {
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
+  const email = ((formData.get("email") as string | null) ?? "").trim().toLowerCase();
+  const password = (formData.get("password") as string | null) ?? "";
 
-  // Verify Admin credentials
-  const defaultAdminEmail = process.env.ADMIN_EMAIL || "admin@elmorabbi.com";
-  const defaultAdminPassword = process.env.ADMIN_PASSWORD || "admin123";
-
-  // Check if matches configured admin credentials or check DB
-  if (
-    (email.trim().toLowerCase() === defaultAdminEmail.toLowerCase() && password === defaultAdminPassword) ||
-    (email.trim().toLowerCase() === "admin@elmorabbi.com" && password === "demo123")
-  ) {
-    await setSession({
-      id: "admin-1",
-      name: "المشرف العام",
-      email: defaultAdminEmail,
-      role: "admin",
-    });
-
-    revalidatePath("/admin");
-    redirect("/admin");
-  } else {
-    // Check if user exists in DB with role 'admin'
-    const user = await dataService.getUserByEmail(email.trim().toLowerCase());
-    if (user && user.role === "admin") {
-      await setSession({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: "admin",
-      });
-      revalidatePath("/admin");
-      redirect("/admin");
-    }
+  if (!email || !password) {
+    redirect("/admin?error=invalid_credentials");
   }
 
-  // If failed
+  if (await isLoginBlocked("admin-login", email)) {
+    redirect("/admin?error=too_many_attempts");
+  }
+
+  // Bootstrap admin from environment variables (no hard-coded defaults)
+  const envAdminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase();
+  const envAdminPassword = process.env.ADMIN_PASSWORD;
+
+  if (envAdminEmail && envAdminPassword && email === envAdminEmail && password === envAdminPassword) {
+    await setSession({
+      id: ENV_ADMIN_ID,
+      name: "المشرف العام",
+      email: envAdminEmail,
+      role: "admin",
+    });
+    revalidatePath("/admin");
+    redirect("/admin");
+  }
+
+  // Admin accounts stored in the database
+  const user = await dataService.getUserByEmail(email);
+  if (user && user.role === "admin" && (await verifyPassword(password, user.password))) {
+    await setSession({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: "admin",
+    });
+    revalidatePath("/admin");
+    redirect("/admin");
+  }
+
+  await recordFailedLogin("admin-login", email);
   redirect("/admin?error=invalid_credentials");
 }
 
-export async function resetSheikhPasswordAction(formData: FormData): Promise<void> {
-  const sheikhId = formData.get("sheikhId") as string;
-  const newPassword = formData.get("newPassword") as string;
+type ActionResult = { success: boolean; error?: string };
 
-  if (sheikhId && newPassword) {
-    await dataService.updateUserPassword(sheikhId, newPassword.trim());
-    revalidatePath("/admin");
-    revalidatePath("/sheikh");
+const DUPLICATE_EMAIL_MESSAGE = "هذا البريد الإلكتروني مستخدم لحساب آخر";
+const WEAK_PASSWORD_MESSAGE = `كلمة المرور يجب ألا تقل عن ${MIN_PASSWORD_LENGTH} أحرف`;
+
+// Runs a write and converts failures into a user-facing error
+async function runWrite(write: () => Promise<void>): Promise<ActionResult> {
+  try {
+    await write();
+    return { success: true };
+  } catch (err) {
+    if (err instanceof DuplicateEmailError) {
+      return { success: false, error: DUPLICATE_EMAIL_MESSAGE };
+    }
+    console.error("Admin action failed:", err);
+    return { success: false, error: SAVE_ERROR_MESSAGE };
   }
 }
 
-export async function createSheikhAction(formData: FormData): Promise<void> {
-  const name = formData.get("name") as string;
-  const email = formData.get("email") as string;
-  const password = formData.get("password") as string;
-  const title = formData.get("title") as string;
-  const halaqahName = formData.get("halaqahName") as string;
-  const bio = formData.get("bio") as string;
+export async function resetSheikhPasswordAction(formData: FormData): Promise<ActionResult> {
+  await requireRole("admin");
 
-  if (name && email) {
-    await dataService.createNewSheikh({
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      password: password ? password.trim() : "123456",
-      title: title?.trim() || "مقرئ ومدرس شرعي",
-      halaqahName: halaqahName?.trim() || "حلقة المربي",
-      bio: bio?.trim(),
-    });
+  const sheikhId = formData.get("sheikhId") as string | null;
+  const newPassword = ((formData.get("newPassword") as string | null) ?? "").trim();
 
-    revalidatePath("/admin");
-    revalidatePath("/student/choose-sheikh");
-  }
-}
-
-export async function updateSheikhProfileAction(formData: FormData): Promise<void> {
-  const sheikhId = formData.get("sheikhId") as string;
-  const name = formData.get("name") as string;
-  const email = formData.get("email") as string;
-  const title = formData.get("title") as string;
-  const halaqahName = formData.get("halaqahName") as string;
-  const bio = formData.get("bio") as string;
-
-  if (sheikhId && name && email) {
-    await dataService.updateSheikhProfile(sheikhId, {
-      name: name.trim(),
-      email: email.trim().toLowerCase(),
-      title: title?.trim() || "مقرئ ومدرس شرعي",
-      halaqahName: halaqahName?.trim() || "حلقة المربي",
-      bio: bio?.trim(),
-    });
-
-    revalidatePath("/admin");
-    revalidatePath("/sheikh");
-    revalidatePath("/student/choose-sheikh");
-  }
-}
-
-export async function reassignStudentSheikhAction(formData: FormData): Promise<void> {
-  const studentId = formData.get("studentId") as string;
-  const newSheikhId = formData.get("newSheikhId") as string;
-
-  if (studentId && newSheikhId) {
-    await dataService.reassignStudentSheikh(studentId, newSheikhId);
-    revalidatePath("/admin");
-    revalidatePath("/sheikh");
-    revalidatePath("/student");
-  }
-}
-
-export async function approveSheikhAction(sheikhId: string): Promise<{ success: boolean; error?: string }> {
   if (!sheikhId) {
     return { success: false, error: "معرف الشيخ مطلوب" };
   }
+  if (!isValidPassword(newPassword)) {
+    return { success: false, error: WEAK_PASSWORD_MESSAGE };
+  }
 
-  await dataService.approveSheikh(sheikhId);
+  const passwordHash = await hashPassword(newPassword);
+  const result = await runWrite(() => dataService.updateUserPassword(sheikhId, passwordHash));
+  revalidatePath("/admin");
+  return result;
+}
+
+export async function createSheikhAction(formData: FormData): Promise<ActionResult> {
+  await requireRole("admin");
+
+  const name = (formData.get("name") as string | null)?.trim();
+  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
+  const password = ((formData.get("password") as string | null) ?? "").trim();
+  const title = formData.get("title") as string | null;
+  const halaqahName = formData.get("halaqahName") as string | null;
+  const bio = formData.get("bio") as string | null;
+
+  if (!name || !email) {
+    return { success: false, error: "الاسم والبريد الإلكتروني مطلوبان" };
+  }
+  if (!isValidPassword(password)) {
+    return { success: false, error: WEAK_PASSWORD_MESSAGE };
+  }
+
+  const passwordHash = await hashPassword(password);
+  const result = await runWrite(() =>
+    dataService.createNewSheikh({
+      name,
+      email,
+      passwordHash,
+      title: title?.trim() || "مقرئ ومدرس شرعي",
+      halaqahName: halaqahName?.trim() || "حلقة المربي",
+      bio: bio?.trim(),
+    })
+  );
+
   revalidatePath("/admin");
   revalidatePath("/student/choose-sheikh");
-  return { success: true };
+  return result;
 }
 
-export async function rejectSheikhAction(sheikhId: string): Promise<{ success: boolean; error?: string }> {
+export async function updateSheikhProfileAction(formData: FormData): Promise<ActionResult> {
+  await requireRole("admin");
+
+  const sheikhId = formData.get("sheikhId") as string | null;
+  const name = (formData.get("name") as string | null)?.trim();
+  const email = (formData.get("email") as string | null)?.trim().toLowerCase();
+  const title = formData.get("title") as string | null;
+  const halaqahName = formData.get("halaqahName") as string | null;
+  const bio = formData.get("bio") as string | null;
+
+  if (!sheikhId || !name || !email) {
+    return { success: false, error: "الاسم والبريد الإلكتروني مطلوبان" };
+  }
+
+  const result = await runWrite(() =>
+    dataService.updateSheikhProfile(sheikhId, {
+      name,
+      email,
+      title: title?.trim() || "مقرئ ومدرس شرعي",
+      halaqahName: halaqahName?.trim() || "حلقة المربي",
+      bio: bio?.trim(),
+    })
+  );
+
+  revalidatePath("/admin");
+  revalidatePath("/sheikh");
+  revalidatePath("/student/choose-sheikh");
+  return result;
+}
+
+export async function reassignStudentSheikhAction(formData: FormData): Promise<ActionResult> {
+  await requireRole("admin");
+
+  const studentId = formData.get("studentId") as string | null;
+  const newSheikhId = formData.get("newSheikhId") as string | null;
+
+  if (!studentId || !newSheikhId) {
+    return { success: false, error: "يرجى اختيار الطالب والشيخ" };
+  }
+
+  const activeSheikhs = await dataService.getAllSheikhs();
+  if (!activeSheikhs.some((s) => s.id === newSheikhId)) {
+    return { success: false, error: "هذا الشيخ غير متاح حالياً" };
+  }
+
+  const result = await runWrite(() => dataService.reassignStudentSheikh(studentId, newSheikhId));
+  revalidatePath("/admin");
+  revalidatePath("/sheikh");
+  revalidatePath("/student");
+  return result;
+}
+
+export async function approveSheikhAction(sheikhId: string): Promise<ActionResult> {
+  await requireRole("admin");
+
   if (!sheikhId) {
     return { success: false, error: "معرف الشيخ مطلوب" };
   }
 
-  await dataService.rejectSheikh(sheikhId);
+  const result = await runWrite(() => dataService.approveSheikh(sheikhId));
   revalidatePath("/admin");
-  return { success: true };
+  revalidatePath("/student/choose-sheikh");
+  return result;
 }
 
+export async function rejectSheikhAction(sheikhId: string): Promise<ActionResult> {
+  await requireRole("admin");
 
+  if (!sheikhId) {
+    return { success: false, error: "معرف الشيخ مطلوب" };
+  }
+
+  const result = await runWrite(() => dataService.rejectSheikh(sheikhId));
+  revalidatePath("/admin");
+  return result;
+}

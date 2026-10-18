@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { UserRecord } from "@/lib/data-service";
+import { ErrorAlert } from "@/components/ui/ErrorAlert";
+import type { UserRecord } from "@/lib/data-service";
 import { chooseSheikhAction } from "@/lib/actions/sheikh-actions";
 import { useRouter } from "next/navigation";
-import { UserCheck, Check, Search, ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { UserCheck, Check, Search, ChevronDown, ChevronUp } from "lucide-react";
 
 interface ChooseSheikhDirectoryProps {
-  sheikhs: UserRecord[];
+  sheikhs: Pick<UserRecord, "id" | "name" | "title" | "bio" | "halaqahName">[];
   currentSheikhId?: string | null;
 }
 
@@ -19,6 +20,7 @@ export function ChooseSheikhDirectory({
   const [searchTerm, setSearchTerm] = useState("");
   const [isPending, startTransition] = useTransition();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const INITIAL_LIMIT = 4;
   const [limit, setLimit] = useState(INITIAL_LIMIT);
@@ -35,8 +37,13 @@ export function ChooseSheikhDirectory({
 
   const handleSelectSheikh = (sheikhId: string) => {
     setSelectedId(sheikhId);
+    setErrorMessage(null);
     startTransition(async () => {
-      await chooseSheikhAction(sheikhId);
+      const res = await chooseSheikhAction(sheikhId);
+      if (res.error) {
+        setErrorMessage(res.error);
+        return;
+      }
       router.push("/student");
       router.refresh();
     });
@@ -54,6 +61,8 @@ export function ChooseSheikhDirectory({
 
   return (
     <div className="space-y-4">
+      <ErrorAlert message={errorMessage} />
+
       {/* Search Bar */}
       {sheikhs.length > 2 && (
         <div className="relative">
@@ -74,7 +83,7 @@ export function ChooseSheikhDirectory({
       {/* Sheikh Cards Grid */}
       {filteredSheikhs.length === 0 ? (
         <div className="bg-white rounded-3xl p-8 border border-slate-200 text-center space-y-2">
-          <p className="text-xs text-slate-500">لا يوجد مشايخ يطابقون بحثك "{searchTerm}"</p>
+          <p className="text-xs text-slate-500">لا يوجد مشايخ يطابقون بحثك «{searchTerm}»</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">

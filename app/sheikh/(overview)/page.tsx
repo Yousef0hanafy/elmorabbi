@@ -1,26 +1,24 @@
-import { redirect } from "next/navigation";
+import { needsAttention } from "@/lib/scoring";
+import { formatDay, todayDateString } from "@/lib/dates";
 import { Header } from "@/components/shared/Header";
-import { BottomNav } from "@/components/shared/BottomNav";
+import { SheikhBottomNav } from "@/components/shared/RoleBottomNav";
 import { SheikhStats } from "@/components/sheikh/SheikhStats";
 import { SheikhWelcomeBanner } from "@/components/sheikh/SheikhWelcomeBanner";
 import { SheikhQuestionsFeed } from "@/components/sheikh/SheikhQuestionsFeed";
 import { StudentDirectory } from "@/components/sheikh/StudentDirectory";
-import { getSession } from "@/lib/auth";
+import { requireRole } from "@/lib/auth";
 import { dataService } from "@/lib/data-service";
-import { Users, Sparkles } from "lucide-react";
+import { Users } from "lucide-react";
 
 export default async function SheikhDashboardPage() {
-  const session = await getSession();
-
-  // Strict Authentication: If not logged in as a Sheikh, redirect to login
-  if (!session || session.role !== "sheikh") {
-    redirect("/login?role=sheikh");
-  }
+  const session = await requireRole("sheikh");
 
   const sheikhId = session.id;
-  const sheikhUser = await dataService.getUserById(sheikhId);
-  const students = await dataService.getStudentsForSheikh(sheikhId);
-  const inquiries = await dataService.getStudentInquiriesForSheikh(sheikhId);
+  const [sheikhUser, students, inquiries] = await Promise.all([
+    dataService.getUserById(sheikhId),
+    dataService.getStudentsForSheikh(sheikhId),
+    dataService.getStudentInquiriesForSheikh(sheikhId),
+  ]);
 
   // Compute stats
   const totalStudents = students.length;
@@ -35,13 +33,17 @@ export default async function SheikhDashboardPage() {
     (s) => s.todayLog?.fajr === "congregation" || s.todayLog?.fajr === "ontime"
   ).length;
 
-  const needsAttentionCount = students.filter(
-    (s) =>
-      !s.todayLog ||
-      s.todayLog.fajr === "missed" ||
-      s.todayLog.fajr === "late" ||
-      s.completionRate < 50
-  ).length;
+  const needsAttentionCount = students.filter(needsAttention).length;
+
+  // Only the fields the list renders reach the browser
+  const rows = students.map((s) => ({
+    id: s.id,
+    name: s.name,
+    profile: { streakDays: s.profile.streakDays, level: s.profile.level },
+    todayLog: s.todayLog,
+    completionRate: s.completionRate,
+    alerts: s.alerts,
+  }));
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9] pb-24 md:pb-12 font-sans" dir="rtl">
@@ -50,7 +52,6 @@ export default async function SheikhDashboardPage() {
       <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 w-full space-y-6">
         {/* Welcome & Broadcast Banner (Supervision card removed) */}
         <SheikhWelcomeBanner
-          sheikhName={sheikhUser?.name || session.name}
           halaqahName={sheikhUser?.halaqahName || `حلقة ${sheikhUser?.name || "المربي"}`}
           totalStudents={totalStudents}
         />
@@ -76,7 +77,7 @@ export default async function SheikhDashboardPage() {
             </div>
             <div>
               <h2 className="text-lg font-bold text-slate-900 leading-tight">
-                متابعة طلاب الحلقة لليوم ({new Date().toLocaleDateString("ar-EG", { weekday: "long", day: "numeric", month: "long" })})
+                متابعة طلاب الحلقة لليوم ({formatDay(todayDateString(), { weekday: "long", day: "numeric", month: "long" })})
               </h2>
               <p className="text-xs text-slate-500">
                 متابعة أداء الصلوات، الأوراد، الصيام، وملاحظات الطلاب اليومية
@@ -84,11 +85,11 @@ export default async function SheikhDashboardPage() {
             </div>
           </div>
 
-          <StudentDirectory students={students} />
+          <StudentDirectory students={rows} />
         </section>
       </main>
 
-      <BottomNav role="sheikh" />
+      <SheikhBottomNav sheikhId={session.id} />
     </div>
   );
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { FeedbackRecord } from "@/lib/data-service";
+import type { FeedbackRecord } from "@/lib/data-service";
 import { ChevronDown, ChevronUp, MessageSquareQuote } from "lucide-react";
 
 interface StudentFeedbackHistoryProps {

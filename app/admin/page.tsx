@@ -15,11 +15,16 @@ import {
   Flame,
   CheckCircle2,
   LogOut,
-  Sparkles,
-  Clock,
 } from "lucide-react";
 
-export default async function AdminPage() {
+type AdminTab = "pending" | "sheikhs" | "students" | "activity";
+const TABS: AdminTab[] = ["pending", "sheikhs", "students", "activity"];
+
+interface AdminPageProps {
+  searchParams: Promise<{ tab?: string }>;
+}
+
+export default async function AdminPage({ searchParams }: AdminPageProps) {
   const session = await getSession();
 
   // If not authenticated as Admin, show dedicated Admin Login Form
@@ -31,11 +36,30 @@ export default async function AdminPage() {
     );
   }
 
-  const sheikhs = await dataService.getAllSheikhs();
-  const pendingSheikhs = await dataService.getPendingSheikhs();
-  const students = await dataService.getAllStudentsWithDetails();
-  const kpis = await dataService.getOperationalKPIs();
-  const feedbacks = await dataService.getRecentFeedbacksAll(5);
+  const [pendingSheikhs, kpis] = await Promise.all([
+    dataService.getPendingSheikhs(),
+    dataService.getOperationalKPIs(),
+  ]);
+
+  // Default to the approval queue while requests are waiting, otherwise sheikh management
+  const requested = (await searchParams).tab;
+  const tab: AdminTab = TABS.includes(requested as AdminTab)
+    ? (requested as AdminTab)
+    : pendingSheikhs.length > 0
+    ? "pending"
+    : "sheikhs";
+
+  // Each tab loads only the data it shows
+  const sheikhs = tab === "sheikhs" || tab === "students" ? await dataService.getAllSheikhs() : [];
+  const students = tab === "students" ? await dataService.getAllStudentsWithDetails() : [];
+  const feedbacks = tab === "activity" ? await dataService.getRecentFeedbacksAll(20) : [];
+
+  const tabs: { key: AdminTab; label: string }[] = [
+    { key: "pending", label: `طلبات الانضمام${pendingSheikhs.length ? ` (${pendingSheikhs.length})` : ""}` },
+    { key: "sheikhs", label: "المشايخ" },
+    { key: "students", label: "الطلاب" },
+    { key: "activity", label: "آخر التوجيهات" },
+  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f8faf9] pb-16 font-sans" dir="rtl">
@@ -137,17 +161,25 @@ export default async function AdminPage() {
           </div>
         </div>
 
-        {/* Section 1: Pending Sheikh Approval Requests */}
-        <PendingSheikhsList pendingSheikhs={pendingSheikhs} />
+        <nav aria-label="أقسام لوحة الإدارة" className="flex gap-1.5 overflow-x-auto bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs">
+          {tabs.map((t) => (
+            <Link
+              key={t.key}
+              href={`/admin?tab=${t.key}`}
+              aria-current={tab === t.key ? "page" : undefined}
+              className={`min-h-10 px-4 rounded-xl text-sm font-bold whitespace-nowrap flex items-center transition-colors ${
+                tab === t.key ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {t.label}
+            </Link>
+          ))}
+        </nav>
 
-        {/* Section 2: Sheikhs Management */}
-        <SheikhManagementList sheikhs={sheikhs} />
-
-        {/* Section 3: Students Directory & Reassign */}
-        <StudentsManagementList students={students} sheikhs={sheikhs} />
-
-        {/* Section 4: Recent Activity & Feedback Messages */}
-        <RecentActivityFeed feedbacks={feedbacks} />
+        {tab === "pending" && <PendingSheikhsList pendingSheikhs={pendingSheikhs} />}
+        {tab === "sheikhs" && <SheikhManagementList sheikhs={sheikhs} />}
+        {tab === "students" && <StudentsManagementList students={students} sheikhs={sheikhs} />}
+        {tab === "activity" && <RecentActivityFeed feedbacks={feedbacks} />}
       </main>
     </div>
   );

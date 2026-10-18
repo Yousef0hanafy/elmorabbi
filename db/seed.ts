@@ -1,19 +1,21 @@
-import { drizzle } from "drizzle-orm/neon-http";
-import { neon } from "@neondatabase/serverless";
-import * as schema from "./schema";
+import bcrypt from "bcryptjs";
+import { getDb, schema } from "./index";
+import { addDays, todayDateString } from "../lib/dates";
 
-const connectionString = process.env.DATABASE_URL;
-
-if (!connectionString) {
+if (!process.env.DATABASE_URL) {
   console.error("DATABASE_URL is not set");
   process.exit(1);
 }
 
-const sql = neon(connectionString);
-const db = drizzle(sql, { schema });
+const db = getDb();
+
+// Demo accounts share one password; override it with SEED_PASSWORD (min 8 chars)
+const seedPassword = process.env.SEED_PASSWORD || "password123";
 
 async function seed() {
-  console.log("🌱 Seeding Neon Postgres database...");
+  console.log("🌱 Seeding database...");
+
+  const passwordHash = await bcrypt.hash(seedPassword, 10);
 
   // Insert Users
   const usersToInsert = [
@@ -21,7 +23,7 @@ async function seed() {
       id: "sheikh-mahmoud",
       name: "الشيخ محمود عبد الحليم",
       email: "sheikh@elmorabbi.com",
-      password: "password123",
+      password: passwordHash,
       role: "sheikh" as const,
       avatar: "https://images.unsplash.com/photo-1544717305-2782549b5136?w=150&auto=format&fit=crop&q=80",
       phone: "+20110 123 4567",
@@ -30,7 +32,7 @@ async function seed() {
       id: "student-ahmed",
       name: "أحمد بن عبد الرحمن",
       email: "ahmed@student.com",
-      password: "password123",
+      password: passwordHash,
       role: "student" as const,
       avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80",
       phone: "+20115 987 6543",
@@ -39,7 +41,7 @@ async function seed() {
       id: "student-omar",
       name: "عمر الفاروق الدوسري",
       email: "omar@student.com",
-      password: "password123",
+      password: passwordHash,
       role: "student" as const,
       avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150&auto=format&fit=crop&q=80",
       phone: "+20114 321 0987",
@@ -48,7 +50,7 @@ async function seed() {
       id: "student-youssef",
       name: "يوسف بن خالد السعيد",
       email: "youssef@student.com",
-      password: "password123",
+      password: passwordHash,
       role: "student" as const,
       avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80",
       phone: "+20116 456 7890",
@@ -57,7 +59,7 @@ async function seed() {
       id: "admin-root",
       name: "المشرف العام",
       email: "admin@elmorabbi.com",
-      password: "password123",
+      password: passwordHash,
       role: "admin" as const,
     },
   ];
@@ -69,18 +71,20 @@ async function seed() {
       .onConflictDoUpdate({ target: schema.users.id, set: user });
   }
 
-  // Insert Sheikh Profile
+  // Insert Sheikh Profile (approved, so students can join)
+  const sheikhProfile = {
+    id: "sp-sheikh-mahmoud",
+    userId: "sheikh-mahmoud",
+    title: "مقرئ القراءات العشر ومجاز في الحديث النبوي الشريف",
+    bio: "إمام ومدرس للقرآن الكريم والعلوم الشرعية، أهدف لمساعدة الطلاب على الاستقامة وبناء الورد اليومي ومحاسبة النفس وفق منهج تربوي أصيل.",
+    isAcceptingStudents: true,
+    halaqahName: "حلقة الهدى والنور لتزكية النفوس",
+    status: "active" as const,
+  };
   await db
     .insert(schema.sheikhProfiles)
-    .values({
-      id: "sp-sheikh-mahmoud",
-      userId: "sheikh-mahmoud",
-      title: "مقرئ القراءات العشر ومجاز في الحديث النبوي الشريف",
-      bio: "إمام ومدرس للقرآن الكريم والعلوم الشرعية، أهدف لمساعدة الطلاب على الاستقامة وبناء الورد اليومي ومحاسبة النفس وفق منهج تربوي أصيل.",
-      isAcceptingStudents: true,
-      halaqahName: "حلقة الهدى والنور لتزكية النفوس",
-    })
-    .onConflictDoNothing();
+    .values(sheikhProfile)
+    .onConflictDoUpdate({ target: schema.sheikhProfiles.id, set: sheikhProfile });
 
   // Insert Student Profiles
   const studentProfiles = [
@@ -88,7 +92,6 @@ async function seed() {
       id: "sp-ahmed",
       userId: "student-ahmed",
       sheikhId: "sheikh-mahmoud",
-      streakDays: 14,
       level: "طالب مواظب (المستوى الثاني)",
       status: "active" as const,
     },
@@ -96,7 +99,6 @@ async function seed() {
       id: "sp-omar",
       userId: "student-omar",
       sheikhId: "sheikh-mahmoud",
-      streakDays: 3,
       level: "مبتدئ يحتاج متابعة",
       status: "active" as const,
     },
@@ -104,7 +106,6 @@ async function seed() {
       id: "sp-youssef",
       userId: "student-youssef",
       sheikhId: "sheikh-mahmoud",
-      streakDays: 28,
       level: "طالب متميز (المستوى المتقدم)",
       status: "active" as const,
     },
@@ -117,11 +118,11 @@ async function seed() {
       .onConflictDoUpdate({ target: schema.studentProfiles.id, set: sp });
   }
 
-  // Today's Date
-  const today = new Date().toISOString().split("T")[0];
+  // Today's Date (Egypt calendar day, same as the app)
+  const today = todayDateString();
 
   // Insert Daily Logs
-  const logs = [
+  const logs: (typeof schema.dailyLogs.$inferInsert)[] = [
     {
       id: `log-ahmed-${today}`,
       studentId: "student-ahmed",
@@ -172,6 +173,36 @@ async function seed() {
     },
   ];
 
+  // Past days so streaks and the weekly chart show real data:
+  // each entry is [studentId, consecutive full-prayer days before today, total history days]
+  const historyPlan: [string, number, number][] = [
+    ["student-ahmed", 13, 20],
+    ["student-omar", 2, 10],
+    ["student-youssef", 27, 30],
+  ];
+  for (const [studentId, streakBeforeToday, totalDays] of historyPlan) {
+    for (let i = 1; i <= totalDays; i++) {
+      const date = addDays(today, -i);
+      const prayedAll = i <= streakBeforeToday;
+      logs.push({
+        id: `log-${studentId}-${date}`,
+        studentId,
+        date,
+        fajr: prayedAll ? (i % 3 === 0 ? "ontime" : "congregation") : "missed",
+        dhuhr: "congregation",
+        asr: i % 4 === 0 ? "late" : "ontime",
+        maghrib: "congregation",
+        isha: prayedAll ? "ontime" : "late",
+        quranRead: i % 5 !== 0,
+        quranPages: i % 5 !== 0 ? 4 + (i % 4) * 2 : 0,
+        adhkarMorning: true,
+        adhkarEvening: i % 2 === 0,
+        fasting: i % 7 === 3 ? "voluntary" : "none",
+        notes: "",
+      });
+    }
+  }
+
   for (const log of logs) {
     await db
       .insert(schema.dailyLogs)
@@ -180,7 +211,7 @@ async function seed() {
   }
 
   // Insert Feedback
-  const feedbackItems = [
+  const feedbackItems: (typeof schema.feedbackMessages.$inferInsert)[] = [
     {
       id: "fb-1",
       sheikhId: "sheikh-mahmoud",
@@ -199,6 +230,42 @@ async function seed() {
     },
   ];
 
+  // A student question (kind "question") so the sheikh's inquiries feed has demo data
+  feedbackItems.push({
+    id: "q-1",
+    sheikhId: "sheikh-mahmoud",
+    studentId: "student-ahmed",
+    content: "فضيلة الشيخ، كيف أثبت ورد الحفظ والمراجعة مع كثرة الانشغال بالعمل والدراسة؟ جزاكم الله خيراً.",
+    type: "advice" as const,
+    isRead: false,
+    kind: "question" as const,
+    category: "تثبيت ورد القرآن",
+  });
+
+  // An answered question: the reply is guidance linked to the question with replyToId
+  feedbackItems.push(
+    {
+      id: "q-2",
+      sheikhId: "sheikh-mahmoud",
+      studentId: "student-omar",
+      content: "يا شيخنا، أجد صعوبة في الاستيقاظ لصلاة الفجر، فبم تنصحني؟",
+      type: "advice" as const,
+      isRead: false,
+      kind: "question" as const,
+      category: "علاج فتور الهمة",
+    },
+    {
+      id: "fb-reply-q-2",
+      sheikhId: "sheikh-mahmoud",
+      studentId: "student-omar",
+      content: "نم مبكراً يا بني، واجعل لك رفيقاً يوقظك، وأكثر من الدعاء قبل النوم أن يعينك الله على القيام.",
+      type: "advice" as const,
+      isRead: false,
+      kind: "guidance" as const,
+      replyToId: "q-2",
+    }
+  );
+
   for (const fb of feedbackItems) {
     await db
       .insert(schema.feedbackMessages)
@@ -206,10 +273,12 @@ async function seed() {
       .onConflictDoUpdate({ target: schema.feedbackMessages.id, set: fb });
   }
 
-  console.log("✅ Neon Postgres seeded successfully!");
+  console.log("✅ Database seeded successfully!");
+  console.log(`🔑 All demo accounts use the password: ${seedPassword}`);
 }
 
 seed()
+  .then(() => process.exit(0))
   .catch((e) => {
     console.error("❌ Seeding failed:", e);
     process.exit(1);

@@ -1,4 +1,4 @@
-import { Users, CheckCircle2, Flame, AlertCircle, HeartHandshake } from "lucide-react";
+import { Users, CheckCircle2, Flame, AlertCircle } from "lucide-react";
 
 interface SheikhStatsProps {
   totalStudents: number;
@@ -38,7 +38,7 @@ export function SheikhStats({
     {
       label: "يحتاجون لمتابعة",
       value: `${needsAttentionCount} طلاب`,
-      subtext: "تأخر في الفجر أو الورد",
+      subtext: "صلاة فائتة اليوم أو نمط متكرر",
       icon: AlertCircle,
       color: "bg-rose-100 text-rose-800",
     },

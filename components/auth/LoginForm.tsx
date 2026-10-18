@@ -43,6 +43,8 @@ export function LoginForm({
     errorMessage = "طلب انضمامك كشيخ قيد المراجعة والاعتماد من قبل إدارة المنصة. سيتم تفعيل حسابك والتواصل معك قريباً.";
   } else if (errorCode === "rejected_sheikh") {
     errorMessage = "نعتذر، لم يتم اعتماد طلب الانضمام. يرجى التواصل مع إدارة المنصة للاستفسار.";
+  } else if (errorCode === "too_many_attempts") {
+    errorMessage = "محاولات دخول كثيرة. يرجى الانتظار ربع ساعة ثم المحاولة مرة أخرى.";
   } else if (errorCode === "missing_fields") {
     errorMessage = "يرجى ملء جميع الحقول المطلوبة (البريد وكلمة المرور).";
   }
@@ -89,7 +91,7 @@ export function LoginForm({
 
       {/* Success Notification Banner */}
       {successMessage && (
-        <div className="mb-5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-900 animate-fadeIn">
+        <div role="status" className="mb-5 p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-start gap-2.5 text-xs text-emerald-900 animate-fadeIn">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
           <p className="leading-relaxed font-medium">{successMessage}</p>
         </div>
@@ -97,7 +99,7 @@ export function LoginForm({
 
       {/* Error Alert Banner */}
       {errorMessage && (
-        <div
+        <div role="alert"
           className={`mb-5 p-3.5 rounded-2xl border flex items-start gap-2.5 text-xs animate-fadeIn ${
             errorCode === "pending_sheikh"
               ? "bg-amber-50 border-amber-200 text-amber-900"
@@ -115,13 +117,14 @@ export function LoginForm({
 
       {/* Role Selection Tabs */}
       <div className="mb-6 relative z-10">
-        <label className="text-xs font-bold text-slate-700 block mb-2">
+        <p id="role-picker-label" className="text-xs font-bold text-slate-700 block mb-2">
           حدد صفتك لتسجيل الدخول:
-        </label>
-        <div className="grid grid-cols-2 gap-2 bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80">
+        </p>
+        <div role="group" aria-labelledby="role-picker-label" className="grid grid-cols-2 gap-2 bg-slate-100/90 p-1 rounded-2xl border border-slate-200/80">
           <button
             type="button"
             onClick={() => setRole("student")}
+            aria-pressed={role === "student"}
             className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               role === "student"
                 ? "bg-white text-emerald-800 shadow-sm border border-emerald-200"
@@ -135,6 +138,7 @@ export function LoginForm({
           <button
             type="button"
             onClick={() => setRole("sheikh")}
+            aria-pressed={role === "sheikh"}
             className={`py-2.5 px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
               role === "sheikh"
                 ? "bg-white text-amber-900 shadow-sm border border-amber-200"
@@ -152,7 +156,7 @@ export function LoginForm({
         <input type="hidden" name="role" value={role} />
 
         <div>
-          <label className="text-xs font-semibold text-slate-700 block mb-1">
+          <label htmlFor="loginform-email" className="text-xs font-semibold text-slate-700 block mb-1">
             البريد الإلكتروني
           </label>
           <div className="relative">
@@ -160,19 +164,22 @@ export function LoginForm({
               <Mail className="w-4 h-4" />
             </div>
             <input
+              id="loginform-email"
               name="email"
               type="email"
+              autoComplete="email"
+              dir="ltr"
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder={role === "student" ? "ahmed@student.com" : "sheikh@elmorabbi.com"}
+              placeholder="name@example.com"
               className="w-full text-xs sm:text-sm rounded-xl border border-slate-200 py-3 pr-10 pl-3 bg-slate-50/70 text-slate-900 focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
             />
           </div>
         </div>
 
         <div>
-          <label className="text-xs font-semibold text-slate-700 block mb-1">
+          <label htmlFor="loginform-password" className="text-xs font-semibold text-slate-700 block mb-1">
             كلمة المرور
           </label>
           <div className="relative">
@@ -180,8 +187,10 @@ export function LoginForm({
               <KeyRound className="w-4 h-4" />
             </div>
             <input
+              id="loginform-password"
               name="password"
               type="password"
+              autoComplete="current-password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
